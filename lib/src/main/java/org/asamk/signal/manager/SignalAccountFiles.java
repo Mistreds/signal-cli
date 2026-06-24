@@ -35,6 +35,8 @@ public class SignalAccountFiles {
     private static final Logger logger = LoggerFactory.getLogger(MultiAccountManager.class);
     private static final int MAX_ACCOUNT_CHECK_ATTEMPTS = 5;
     private static final int PROGRESS_BAR_WIDTH = 30;
+    private static final ThreadLocal<Boolean> LOAD_PROGRESS_ACTIVE = ThreadLocal.withInitial(() -> false);
+    private static final ThreadLocal<Boolean> LOAD_PROGRESS_LINE_VISIBLE = ThreadLocal.withInitial(() -> false);
 
     private final PathConfig pathConfig;
     private final ServiceEnvironment serviceEnvironment;
@@ -119,32 +121,45 @@ public class SignalAccountFiles {
             return List.of();
         }
 
-        final var managerPairs = new ArrayList<Pair<Manager, Throwable>>();
+        final var totalAccounts = accounts.size();
+        LOAD_PROGRESS_ACTIVE.set(true);
         var loadedCount = 0;
-        for (var processed = 1; processed <= accounts.size(); processed++) {
-            final var account = accounts.get(processed - 1);
-            try {
-                managerPairs.add(new Pair<>(initManager(account.number(), account.path()), null));
-                loadedCount++;
-            } catch (NotRegisteredException ignored) {
-            } catch (AccountCheckException | IOException e) {
-                finishLoadProgressLine();
-                logger.error("Failed to load {}: {} ({})",
-                        account.number(),
-                        e.getMessage(),
-                        e.getClass().getSimpleName());
-                managerPairs.add(new Pair<>(null, e));
+        try {
+            final var managerPairs = new ArrayList<Pair<Manager, Throwable>>();
+            for (var processed = 1; processed <= totalAccounts; processed++) {
+                final var account = accounts.get(processed - 1);
+                try {
+                    managerPairs.add(new Pair<>(initManager(account.number(), account.path()), null));
+                    loadedCount++;
+                } catch (NotRegisteredException ignored) {
+                } catch (AccountCheckException | IOException e) {
+                    logDuringAccountLoad(() -> logger.error("Failed to load {}: {} ({})",
+                            account.number(),
+                            e.getMessage(),
+                            e.getClass().getSimpleName()));
+                    managerPairs.add(new Pair<>(null, e));
+                }
+
+                reportLoadProgress(processed, totalAccounts, loadedCount);
             }
 
-            reportLoadProgress(processed, accounts.size(), loadedCount);
+            return managerPairs;
+        } finally {
+            finishLoadProgressLine();
+            LOAD_PROGRESS_ACTIVE.set(false);
+            logger.info("Loaded {} working accounts out of {}", loadedCount, totalAccounts);
         }
+    }
 
-        finishLoadProgressLine();
-        logger.info("Loaded {} working accounts out of {}", loadedCount, accounts.size());
-        return managerPairs;
+    private static void logDuringAccountLoad(final Runnable logAction) {
+        clearLoadProgressLine();
+        logAction.run();
     }
 
     private static void reportLoadProgress(final int processed, final int total, final int loadedCount) {
+        if (!Boolean.TRUE.equals(LOAD_PROGRESS_ACTIVE.get())) {
+            return;
+        }
         final var percent = processed * 100 / total;
         final var message = String.format("Loading accounts: %s %d/%d checked, %d working",
                 formatProgressBar(percent),
@@ -153,10 +168,19 @@ public class SignalAccountFiles {
                 loadedCount);
         System.err.print("\033[2K\r" + message);
         System.err.flush();
+        LOAD_PROGRESS_LINE_VISIBLE.set(true);
+    }
+
+    private static void clearLoadProgressLine() {
+        if (!Boolean.TRUE.equals(LOAD_PROGRESS_LINE_VISIBLE.get())) {
+            return;
+        }
+        System.err.println();
+        LOAD_PROGRESS_LINE_VISIBLE.set(false);
     }
 
     private static void finishLoadProgressLine() {
-        System.err.println();
+        clearLoadProgressLine();
     }
 
     private static String formatProgressBar(final int percent) {
@@ -216,11 +240,11 @@ public class SignalAccountFiles {
                     throw new AccountCheckException("Error while checking account " + number + ": " + e.getMessage(), e);
                 }
                 if (attempt < MAX_ACCOUNT_CHECK_ATTEMPTS) {
-                    logger.warn("Failed to check account {} (attempt {}/{}): {}, retrying",
+                    logDuringAccountLoad(() -> logger.warn("Failed to check account {} (attempt {}/{}): {}, retrying",
                             number,
                             attempt,
                             MAX_ACCOUNT_CHECK_ATTEMPTS,
-                            e.getMessage());
+                            e.getMessage()));
                     continue;
                 }
                 throw new AccountCheckException("Error while checking account " + number + ": " + e.getMessage(), e);
