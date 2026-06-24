@@ -110,6 +110,46 @@ of all country codes.)
 command). This is required for the encryption to work efficiently and for getting updates to groups, expiration timer
 and other features.
 
+### Global options
+
+Global options must be placed before the subcommand, e.g. `signal-cli --user-agent "..." daemon --socket`.
+
+* `--user-agent USER_AGENT`
+
+  Set the full User-Agent string for Signal server requests.
+  If not set, the `SIGNAL_CLI_USER_AGENT` environment variable is used.
+  If neither is set, the default is `Signal-Android/8.15.0 signal-cli/VERSION`.
+
+  ```sh
+  signal-cli --user-agent "MyApp/1.0 Signal-Android/8.15.0" -a ACCOUNT receive
+  ```
+
+  ```sh
+  export SIGNAL_CLI_USER_AGENT="MyApp/1.0 Signal-Android/8.15.0"
+  signal-cli -a ACCOUNT receive
+  ```
+
+  The resolved User-Agent is logged at startup: `Using User-Agent: ...`
+
+* `--ignore-unregistered-accounts`
+
+  In multi-account mode, silently skip unregistered local accounts instead of logging a warning for each one.
+  Shows a loading progress bar in the log while working accounts are loaded.
+  Useful when running `daemon` with many accounts where some are no longer registered.
+
+  ```sh
+  signal-cli --ignore-unregistered-accounts daemon --socket
+  ```
+
+  These options can also be set in the config file (`~/.config/signal-cli/config.json`):
+
+  ```json
+  {
+    "userAgent": "MyApp/1.0 Signal-Android/8.15.0",
+    "ignoreUnregisteredAccounts": true
+  }
+  ```
+
 ## Storage
 
 The password and cryptographic keys are created when registering and stored in the current users home directory:

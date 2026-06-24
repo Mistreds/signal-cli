@@ -119,10 +119,8 @@ public class SignalAccountFiles {
             return List.of();
         }
 
-        logger.info("Loading {} accounts...", accounts.size());
         final var managerPairs = new ArrayList<Pair<Manager, Throwable>>();
         var loadedCount = 0;
-        var lastLoggedPercent = -1;
         for (var processed = 1; processed <= accounts.size(); processed++) {
             final var account = accounts.get(processed - 1);
             try {
@@ -130,6 +128,7 @@ public class SignalAccountFiles {
                 loadedCount++;
             } catch (NotRegisteredException ignored) {
             } catch (AccountCheckException | IOException e) {
+                finishLoadProgressLine();
                 logger.error("Failed to load {}: {} ({})",
                         account.number(),
                         e.getMessage(),
@@ -137,19 +136,27 @@ public class SignalAccountFiles {
                 managerPairs.add(new Pair<>(null, e));
             }
 
-            final var percent = processed * 100 / accounts.size();
-            if (percent != lastLoggedPercent || processed == accounts.size()) {
-                logger.info("Loading accounts: {} {}/{} checked, {} working",
-                        formatProgressBar(percent),
-                        processed,
-                        accounts.size(),
-                        loadedCount);
-                lastLoggedPercent = percent;
-            }
+            reportLoadProgress(processed, accounts.size(), loadedCount);
         }
 
+        finishLoadProgressLine();
         logger.info("Loaded {} working accounts out of {}", loadedCount, accounts.size());
         return managerPairs;
+    }
+
+    private static void reportLoadProgress(final int processed, final int total, final int loadedCount) {
+        final var percent = processed * 100 / total;
+        final var message = String.format("Loading accounts: %s %d/%d checked, %d working",
+                formatProgressBar(percent),
+                processed,
+                total,
+                loadedCount);
+        System.err.print("\033[2K\r" + message);
+        System.err.flush();
+    }
+
+    private static void finishLoadProgressLine() {
+        System.err.println();
     }
 
     private static String formatProgressBar(final int percent) {

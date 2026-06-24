@@ -143,6 +143,7 @@ public class App {
     }
 
     public void init() throws CommandException {
+        logger.info("Using User-Agent: {}", BaseConfig.resolveUserAgent(ns.getString("user-agent")));
         logger.debug("Starting {}", BaseConfig.PROJECT_NAME + " " + BaseConfig.PROJECT_VERSION);
         var commandKey = ns.getString("command");
         var command = Commands.getCommand(commandKey);
