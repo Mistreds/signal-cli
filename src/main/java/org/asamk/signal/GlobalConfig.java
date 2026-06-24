@@ -14,6 +14,8 @@ public record GlobalConfig(
         @JsonProperty("serviceEnvironment") ServiceEnvironmentCli serviceEnvironment,
         @JsonProperty("trustNewIdentities") TrustNewIdentityCli trustNewIdentities,
         @JsonProperty("disableSendLog") Boolean disableSendLog,
+        @JsonProperty("ignoreUnregisteredAccounts") Boolean ignoreUnregisteredAccounts,
+        @JsonProperty("userAgent") String userAgent,
         @JsonProperty("account") String account
 ) {
 
@@ -28,9 +30,11 @@ public record GlobalConfig(
             ServiceEnvironmentCli.LIVE,
             TrustNewIdentityCli.ON_FIRST_USE,
             null,
+            null,
+            null,
             null);
 
     public static GlobalConfig empty() {
-        return new GlobalConfig(null, null, null, null, null, null, null, null, null, null, null, null);
+        return new GlobalConfig(null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 }

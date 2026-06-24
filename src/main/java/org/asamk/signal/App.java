@@ -114,6 +114,17 @@ public class App {
                 .action(Arguments.storeTrue())
                 .setDefault(cfg.disableSendLog() != null ? cfg.disableSendLog() : false);
 
+        parser.addArgument("--ignore-unregistered-accounts")
+                .help("In multi-account mode, silently skip unregistered accounts and log loading progress for working accounts.")
+                .action(Arguments.storeTrue())
+                .setDefault(cfg.ignoreUnregisteredAccounts() != null ? cfg.ignoreUnregisteredAccounts() : false);
+
+        parser.addArgument("--user-agent")
+                .help("Set the User-Agent string for Signal server requests (overrides "
+                        + BaseConfig.USER_AGENT_ENV
+                        + " environment variable).")
+                .setDefault(cfg.userAgent());
+
         parser.epilog(
                 "The global arguments are shown with 'signal-cli -h' and need to come before the subcommand, while the subcommand-specific arguments (shown with 'signal-cli SUBCOMMAND -h') need to be given after the subcommand.");
 
@@ -253,12 +264,13 @@ public class App {
                 : trustNewIdentityCli == TrustNewIdentityCli.ALWAYS ? TrustNewIdentity.ALWAYS : TrustNewIdentity.NEVER;
 
         final var disableSendLog = Boolean.TRUE.equals(ns.getBoolean("disable-send-log"));
+        final var ignoreUnregisteredAccounts = Boolean.TRUE.equals(ns.getBoolean("ignore-unregistered-accounts"));
 
         try {
             return new SignalAccountFiles(dataPath,
                     serviceEnvironment,
-                    BaseConfig.USER_AGENT,
-                    new Settings(trustNewIdentity, disableSendLog));
+                    BaseConfig.resolveUserAgent(ns.getString("user-agent")),
+                    new Settings(trustNewIdentity, disableSendLog, ignoreUnregisteredAccounts));
         } catch (IOException e) {
             throw new IOErrorException("Failed to read local accounts list", e);
         }
