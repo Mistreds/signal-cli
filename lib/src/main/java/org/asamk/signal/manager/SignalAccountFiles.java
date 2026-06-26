@@ -124,6 +124,7 @@ public class SignalAccountFiles {
         final var totalAccounts = accounts.size();
         LOAD_PROGRESS_ACTIVE.set(true);
         var loadedCount = 0;
+        var lastLoggedPercent = -1;
         try {
             final var managerPairs = new ArrayList<Pair<Manager, Throwable>>();
             for (var processed = 1; processed <= totalAccounts; processed++) {
@@ -133,14 +134,11 @@ public class SignalAccountFiles {
                     loadedCount++;
                 } catch (NotRegisteredException ignored) {
                 } catch (AccountCheckException | IOException e) {
-                    logDuringAccountLoad(() -> logger.error("Failed to load {}: {} ({})",
-                            account.number(),
-                            e.getMessage(),
-                            e.getClass().getSimpleName()));
+                    logErrorDuringAccountLoad(account.number(), e.getMessage(), e.getClass().getSimpleName());
                     managerPairs.add(new Pair<>(null, e));
                 }
 
-                reportLoadProgress(processed, totalAccounts, loadedCount);
+                lastLoggedPercent = reportLoadProgress(processed, totalAccounts, loadedCount, lastLoggedPercent);
             }
 
             return managerPairs;
@@ -151,14 +149,36 @@ public class SignalAccountFiles {
         }
     }
 
-    private static void logDuringAccountLoad(final Runnable logAction) {
+    private static void logErrorDuringAccountLoad(
+            final String number,
+            final String message,
+            final String exceptionClass
+    ) {
         clearLoadProgressLine();
-        logAction.run();
+        logger.error("Failed to load {}: {} ({})", number, message, exceptionClass);
     }
 
-    private static void reportLoadProgress(final int processed, final int total, final int loadedCount) {
+    private static void logRetryDuringAccountLoad(
+            final String number,
+            final int attempt,
+            final String message
+    ) {
+        clearLoadProgressLine();
+        logger.warn("Failed to check account {} (attempt {}/{}): {}, retrying",
+                number,
+                attempt,
+                MAX_ACCOUNT_CHECK_ATTEMPTS,
+                message);
+    }
+
+    private static int reportLoadProgress(
+            final int processed,
+            final int total,
+            final int loadedCount,
+            final int lastLoggedPercent
+    ) {
         if (!Boolean.TRUE.equals(LOAD_PROGRESS_ACTIVE.get())) {
-            return;
+            return lastLoggedPercent;
         }
         final var percent = processed * 100 / total;
         final var message = String.format("Loading accounts: %s %d/%d checked, %d working",
@@ -166,11 +186,25 @@ public class SignalAccountFiles {
                 processed,
                 total,
                 loadedCount);
-        System.err.print("\033[2K\r" + message);
-        System.err.flush();
-        LOAD_PROGRESS_LINE_VISIBLE.set(true);
+        if (useInPlaceProgress()) {
+            System.err.print("\033[2K\r" + message);
+            System.err.flush();
+            LOAD_PROGRESS_LINE_VISIBLE.set(true);
+            return lastLoggedPercent;
+        }
+        if (percent != lastLoggedPercent || processed == total) {
+            logger.info(message);
+            return percent;
+        }
+        return lastLoggedPercent;
     }
 
+    private static boolean useInPlaceProgress() {
+        if (Boolean.parseBoolean(System.getenv().getOrDefault("SIGNAL_CLI_PLAIN_PROGRESS", "false"))) {
+            return false;
+        }
+        return System.console() != null;
+    }
     private static void clearLoadProgressLine() {
         if (!Boolean.TRUE.equals(LOAD_PROGRESS_LINE_VISIBLE.get())) {
             return;
@@ -240,11 +274,7 @@ public class SignalAccountFiles {
                     throw new AccountCheckException("Error while checking account " + number + ": " + e.getMessage(), e);
                 }
                 if (attempt < MAX_ACCOUNT_CHECK_ATTEMPTS) {
-                    logDuringAccountLoad(() -> logger.warn("Failed to check account {} (attempt {}/{}): {}, retrying",
-                            number,
-                            attempt,
-                            MAX_ACCOUNT_CHECK_ATTEMPTS,
-                            e.getMessage()));
+                    logRetryDuringAccountLoad(number, attempt, e.getMessage());
                     continue;
                 }
                 throw new AccountCheckException("Error while checking account " + number + ": " + e.getMessage(), e);
