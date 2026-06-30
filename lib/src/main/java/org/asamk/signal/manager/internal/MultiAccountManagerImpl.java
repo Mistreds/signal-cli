@@ -109,7 +109,7 @@ public class MultiAccountManagerImpl implements MultiAccountManager {
                 managers.add(newManager);
                 return newManager;
             } catch (IOException | NotRegisteredException | AccountCheckException e) {
-                logger.warn("Failed to load new manager", e);
+                logger.warn("Failed to load new manager for {}", number, e);
                 return null;
             }
         }
