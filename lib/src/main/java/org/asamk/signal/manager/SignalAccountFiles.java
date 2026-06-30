@@ -33,7 +33,8 @@ import java.util.function.Consumer;
 public class SignalAccountFiles {
 
     private static final Logger logger = LoggerFactory.getLogger(MultiAccountManager.class);
-    private static final int MAX_ACCOUNT_CHECK_ATTEMPTS = 5;
+    private static final int MAX_ACCOUNT_CHECK_ATTEMPTS = 10;
+    private static final long ACCOUNT_CHECK_RETRY_DELAY_MS = 10_000;
     private static final int PROGRESS_BAR_WIDTH = 30;
     private static final ThreadLocal<Boolean> LOAD_PROGRESS_ACTIVE = ThreadLocal.withInitial(() -> false);
     private static final ThreadLocal<Boolean> LOAD_PROGRESS_LINE_VISIBLE = ThreadLocal.withInitial(() -> false);
@@ -164,11 +165,24 @@ public class SignalAccountFiles {
             final String message
     ) {
         clearLoadProgressLine();
-        logger.warn("Failed to check account {} (attempt {}/{}): {}, retrying",
+        logger.warn("Failed to check account {} (attempt {}/{}): {}, retrying in {} seconds",
                 number,
                 attempt,
                 MAX_ACCOUNT_CHECK_ATTEMPTS,
-                message);
+                message,
+                ACCOUNT_CHECK_RETRY_DELAY_MS / 1000);
+    }
+
+    private static void sleepBeforeAccountCheckRetry(final String number, final int attempt) {
+        try {
+            Thread.sleep(ACCOUNT_CHECK_RETRY_DELAY_MS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.warn("Interrupted while waiting to retry account check for {} (attempt {}/{})",
+                    number,
+                    attempt,
+                    MAX_ACCOUNT_CHECK_ATTEMPTS);
+        }
     }
 
     private static int reportLoadProgress(
@@ -275,6 +289,7 @@ public class SignalAccountFiles {
                 }
                 if (attempt < MAX_ACCOUNT_CHECK_ATTEMPTS) {
                     logRetryDuringAccountLoad(number, attempt, e.getMessage());
+                    sleepBeforeAccountCheckRetry(number, attempt);
                     continue;
                 }
                 throw new AccountCheckException("Error while checking account " + number + ": " + e.getMessage(), e);
