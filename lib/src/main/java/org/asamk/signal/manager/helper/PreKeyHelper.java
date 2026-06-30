@@ -178,7 +178,8 @@ public class PreKeyHelper {
             if (serviceIdType != ServiceIdType.PNI || e.code != 422) {
                 throw e;
             }
-            logger.warn("Failed to set PNI pre keys, ignoring for now. Account needs to be reregistered to fix this.");
+            logger.warn("Failed to set PNI pre keys for {}, ignoring for now. Account needs to be reregistered to fix this.",
+                    account.getNumber());
         }
         return needsReset;
     }
