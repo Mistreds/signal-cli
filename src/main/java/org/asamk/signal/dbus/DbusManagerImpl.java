@@ -114,6 +114,11 @@ public class DbusManagerImpl implements Manager {
     }
 
     @Override
+    public String getSelfACI() {
+        return signal.getSelfACI();
+    }
+
+    @Override
     public Map<String, UserStatus> getUserStatus(final Set<String> numbers) throws IOException {
         final var numbersList = new ArrayList<>(numbers);
         final var registered = signal.isRegistered(numbersList);
@@ -540,6 +545,15 @@ public class DbusManagerImpl implements Manager {
     ) throws IOException {
         final var timestamp = signal.sendPaymentNotification(receipt, note, recipient.getIdentifier());
         return new SendMessageResults(timestamp, Map.of());
+    }
+
+    @Override
+    public SendMessageResults sendStory(
+            String attachment,
+            boolean allowsReplies,
+            Optional<GroupId> groupId
+    ) {
+        throw new UnsupportedOperationException();
     }
 
     @Override

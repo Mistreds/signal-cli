@@ -54,6 +54,7 @@ import org.asamk.signal.manager.api.UserStatus;
 import org.asamk.signal.manager.api.UsernameLinkUrl;
 import org.asamk.signal.manager.api.UsernameStatus;
 import org.asamk.signal.manager.api.VerificationMethodNotAvailableException;
+import org.signal.core.util.UuidUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,6 +75,10 @@ public interface Manager extends Closeable {
         return PhoneNumberUtil.getInstance().isPossibleNumber(e164Number, countryCode);
     }
 
+    static boolean isValidAci(final String aci) {
+        return UuidUtil.INSTANCE.isUuid(aci);
+    }
+
     static boolean isSignalClientAvailable() {
         final Logger logger = LoggerFactory.getLogger(Manager.class);
         try {
@@ -90,6 +95,8 @@ public interface Manager extends Closeable {
     }
 
     String getSelfNumber();
+
+    String getSelfACI();
 
     /**
      * This is used for checking a set of phone numbers for registration on Signal
@@ -212,6 +219,19 @@ public interface Manager extends Closeable {
             Set<RecipientIdentifier> recipients,
             long editTargetTimestamp
     ) throws IOException, AttachmentInvalidException, NotAGroupMemberException, GroupNotFoundException, GroupSendingNotAllowedException, UnregisteredRecipientException, InvalidStickerException;
+
+    /**
+     * Post a file attachment story to "My Story" or to a group.
+     *
+     * @param attachment    path to the file to upload and post as a story
+     * @param allowsReplies whether other users are allowed to reply to this story
+     * @param groupId       if present, post the story to this group instead of "My Story"
+     */
+    SendMessageResults sendStory(
+            String attachment,
+            boolean allowsReplies,
+            Optional<GroupId> groupId
+    ) throws IOException, AttachmentInvalidException, GroupNotFoundException, NotAGroupMemberException;
 
     SendMessageResults sendRemoteDeleteMessage(
             long targetSentTimestamp,

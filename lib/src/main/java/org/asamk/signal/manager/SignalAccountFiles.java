@@ -16,6 +16,7 @@ import org.asamk.signal.manager.storage.SignalAccount;
 import org.asamk.signal.manager.storage.accounts.AccountsStorage;
 import org.asamk.signal.manager.storage.accounts.AccountsStore;
 import org.asamk.signal.manager.util.KeyUtils;
+import org.signal.core.models.ServiceId.ACI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.signalservice.api.push.exceptions.AuthorizationFailedException;
@@ -104,7 +105,7 @@ public class SignalAccountFiles {
     ) {
         return accounts.parallelStream().map(a -> {
             try {
-                return new Pair<Manager, Throwable>(initManager(a.number(), a.path()), null);
+                return new Pair<Manager, Throwable>(initManagerByNumber(a.number(), a.path()), null);
             } catch (NotRegisteredException e) {
                 logger.warn("Ignoring {}: {} ({})", a.number(), e.getMessage(), e.getClass().getSimpleName());
                 return null;
@@ -131,7 +132,7 @@ public class SignalAccountFiles {
             for (var processed = 1; processed <= totalAccounts; processed++) {
                 final var account = accounts.get(processed - 1);
                 try {
-                    managerPairs.add(new Pair<>(initManager(account.number(), account.path()), null));
+                    managerPairs.add(new Pair<>(initManagerByNumber(account.number(), account.path()), null));
                     loadedCount++;
                 } catch (NotRegisteredException ignored) {
                 } catch (AccountCheckException | IOException e) {
@@ -219,6 +220,7 @@ public class SignalAccountFiles {
         }
         return System.console() != null;
     }
+
     private static void clearLoadProgressLine() {
         if (!Boolean.TRUE.equals(LOAD_PROGRESS_LINE_VISIBLE.get())) {
             return;
@@ -236,15 +238,44 @@ public class SignalAccountFiles {
         return "[" + "=".repeat(filled) + " ".repeat(PROGRESS_BAR_WIDTH - filled) + "]";
     }
 
-    public Manager initManager(String number) throws IOException, NotRegisteredException, AccountCheckException {
+    public Manager initManagerByNumber(String number) throws IOException, NotRegisteredException, AccountCheckException {
         final var accountPath = accountsStore.getPathByNumber(number);
-        return this.initManager(number, accountPath);
+        return this.initManagerByNumber(number, accountPath);
     }
 
-    private Manager initManager(
+    public Manager initManagerByAci(String aciStr) throws IOException, NotRegisteredException, AccountCheckException {
+        final var aci = ACI.parseOrThrow(aciStr);
+        final var accountPath = accountsStore.getPathByAci(aci);
+        return this.initManagerByAci(aci, accountPath);
+    }
+
+    private Manager initManagerByNumber(
             String number,
             String accountPath
     ) throws IOException, NotRegisteredException, AccountCheckException {
+        for (var attempt = 1; attempt <= MAX_ACCOUNT_CHECK_ATTEMPTS; attempt++) {
+            final var account = loadAccount(accountPath);
+            if (!number.equals(account.getNumber())) {
+                account.close();
+                throw new IOException("Number in account file doesn't match expected number: " + account.getNumber());
+            }
+
+            try {
+                return initManagerFromAccount(number, accountPath, account);
+            } catch (AccountCheckException e) {
+                if (attempt < MAX_ACCOUNT_CHECK_ATTEMPTS && isRetryableAccountCheck(e)) {
+                    logRetryDuringAccountLoad(number, attempt, e.getMessage());
+                    sleepBeforeAccountCheckRetry(number, attempt);
+                    continue;
+                }
+                throw e;
+            }
+        }
+
+        throw new AssertionError("Unreachable");
+    }
+
+    private SignalAccount loadAccount(final String accountPath) throws NotRegisteredException, IOException {
         if (accountPath == null) {
             throw new NotRegisteredException();
         }
@@ -252,58 +283,80 @@ public class SignalAccountFiles {
             throw new NotRegisteredException();
         }
 
+        return SignalAccount.load(pathConfig.dataPath(), accountPath, true, settings);
+    }
+
+    private Manager initManagerByAci(
+            ACI aci,
+            String accountPath
+    ) throws IOException, NotRegisteredException, AccountCheckException {
+        final var identifier = aci.toString();
         for (var attempt = 1; attempt <= MAX_ACCOUNT_CHECK_ATTEMPTS; attempt++) {
-            var account = SignalAccount.load(pathConfig.dataPath(), accountPath, true, settings);
-            if (!number.equals(account.getNumber())) {
+            final var account = loadAccount(accountPath);
+            if (!aci.equals(account.getAci())) {
                 account.close();
-                throw new IOException("Number in account file doesn't match expected number: " + account.getNumber());
+                throw new IOException("ACI in account file doesn't match expected ACI: " + account.getAci());
             }
-
-            if (!account.isRegistered()) {
-                account.close();
-                throw new NotRegisteredException();
-            }
-
-            if (account.getServiceEnvironment() != null && account.getServiceEnvironment() != serviceEnvironment) {
-                account.close();
-                throw new IOException("Account is registered in another environment: " + account.getServiceEnvironment());
-            }
-
-            account.initDatabase();
-
-            final var manager = new ManagerImpl(account,
-                    pathConfig,
-                    new AccountFileUpdaterImpl(accountsStore, accountPath),
-                    serviceEnvironmentConfig,
-                    userAgent);
 
             try {
-                manager.checkAccountState();
-            } catch (DeprecatedVersionException e) {
-                manager.close();
-                throw new IOException("signal-cli version is too old for the Signal-Server, please update.");
-            } catch (IOException e) {
-                manager.close();
-                if (isAuthorizationFailed(e)) {
-                    throw new AccountCheckException("Error while checking account " + number + ": " + e.getMessage(), e);
-                }
-                if (attempt < MAX_ACCOUNT_CHECK_ATTEMPTS) {
-                    logRetryDuringAccountLoad(number, attempt, e.getMessage());
-                    sleepBeforeAccountCheckRetry(number, attempt);
+                return initManagerFromAccount(identifier, accountPath, account);
+            } catch (AccountCheckException e) {
+                if (attempt < MAX_ACCOUNT_CHECK_ATTEMPTS && isRetryableAccountCheck(e)) {
+                    logRetryDuringAccountLoad(identifier, attempt, e.getMessage());
+                    sleepBeforeAccountCheckRetry(identifier, attempt);
                     continue;
                 }
-                throw new AccountCheckException("Error while checking account " + number + ": " + e.getMessage(), e);
+                throw e;
             }
-
-            if (account.getServiceEnvironment() == null) {
-                account.setServiceEnvironment(serviceEnvironment);
-                accountsStore.updateAccount(accountPath, account.getNumber(), account.getAci());
-            }
-
-            return manager;
         }
 
         throw new AssertionError("Unreachable");
+    }
+
+    private ManagerImpl initManagerFromAccount(
+            final String identifier,
+            final String accountPath,
+            final SignalAccount account
+    ) throws NotRegisteredException, IOException, AccountCheckException {
+        if (!account.isRegistered()) {
+            account.close();
+            throw new NotRegisteredException();
+        }
+
+        if (account.getServiceEnvironment() != null && account.getServiceEnvironment() != serviceEnvironment) {
+            account.close();
+            throw new IOException("Account is registered in another environment: " + account.getServiceEnvironment());
+        }
+
+        account.initDatabase();
+
+        final var manager = new ManagerImpl(account,
+                pathConfig,
+                new AccountFileUpdaterImpl(accountsStore, accountPath),
+                serviceEnvironmentConfig,
+                userAgent);
+
+        try {
+            manager.checkAccountState();
+        } catch (DeprecatedVersionException e) {
+            manager.close();
+            throw new IOException("signal-cli version is too old for the Signal-Server, please update.");
+        } catch (IOException e) {
+            manager.close();
+            throw new AccountCheckException("Error while checking account " + identifier + ": " + e.getMessage(), e);
+        }
+
+        if (account.getServiceEnvironment() == null) {
+            account.setServiceEnvironment(serviceEnvironment);
+            accountsStore.updateAccount(accountPath, account.getNumber(), account.getAci());
+        }
+
+        return manager;
+    }
+
+    private static boolean isRetryableAccountCheck(final AccountCheckException e) {
+        final var cause = e.getCause();
+        return cause instanceof IOException io && !isAuthorizationFailed(io);
     }
 
     private static boolean isAuthorizationFailed(final IOException e) {

@@ -30,6 +30,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -51,7 +52,16 @@ public class RecipientStore implements RecipientIdCreator, RecipientResolver, Re
 
     private final Map<Long, Long> recipientsMerged = new HashMap<>();
 
-    private final Map<ServiceId, RecipientWithAddress> recipientAddressCache = Collections.synchronizedMap(new HashMap<>());
+    private static final int MAX_RECIPIENT_CACHE_SIZE = 2000;
+
+    private final Map<ServiceId, RecipientWithAddress> recipientAddressCache = Collections.synchronizedMap(
+            new LinkedHashMap<>(16, 0.75f, true) {
+
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<ServiceId, RecipientWithAddress> eldest) {
+                    return size() > MAX_RECIPIENT_CACHE_SIZE;
+                }
+            });
 
     public static void createSql(Connection connection) throws SQLException {
         // When modifying the CREATE statement here, also add a migration in AccountDatabase.java
@@ -456,6 +466,40 @@ public class RecipientStore implements RecipientIdCreator, RecipientResolver, Re
                         }
                         return r;
                     }).toList();
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed read from recipient store", e);
+        }
+    }
+
+    /**
+     * Returns the subset of the given recipients that are currently known to be
+     * unregistered (i.e. have an unregistered timestamp set).
+     * <p>
+     * These can be skipped when sending group messages; otherwise every send
+     * re-attempts them via the slow legacy 1:1 fan-out. The unregistered flag is
+     * maintained independently by profile/CDS discovery and cleared again once a
+     * recipient registers, so they are re-included automatically.
+     */
+    public Set<RecipientId> getUnregisteredRecipientIds(final Set<RecipientId> recipientIds) {
+        if (recipientIds.isEmpty()) {
+            return Set.of();
+        }
+        final var recipientIdsCommaSeparated = recipientIds.stream()
+                .map(recipientId -> String.valueOf(recipientId.id()))
+                .collect(Collectors.joining(","));
+        final var sql = (
+                """
+                SELECT r._id
+                FROM %s r
+                WHERE r.unregistered_timestamp IS NOT NULL AND r._id IN (%s)
+                """
+        ).formatted(TABLE_RECIPIENT, recipientIdsCommaSeparated);
+        try (final var connection = database.getConnection()) {
+            try (final var statement = connection.prepareStatement(sql)) {
+                try (var result = Utils.executeQueryForStream(statement, this::getRecipientIdFromResultSet)) {
+                    return result.collect(Collectors.toSet());
                 }
             }
         } catch (SQLException e) {

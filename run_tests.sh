@@ -62,15 +62,15 @@ run() {
     fi
   elif [ "$DBUS" -eq 1 ]; then
     if [ -n "$STD_BUF" ]; then
-      $STD_BUF "$SIGNAL_CLI" --dbus --verbose --verbose $@ | grep --line-buffered -v 'Warning:' | grep --line-buffered -v 'at org'
+      $STD_BUF "$SIGNAL_CLI" --dbus --verbose --verbose $@ > >(grep --line-buffered -v 'Warning:' | grep --line-buffered -v 'at org' || true)
     else
-      "$SIGNAL_CLI" --dbus --verbose --verbose $@ | grep --line-buffered -v 'Warning:' | grep --line-buffered -v 'at org'
+      "$SIGNAL_CLI" --dbus --verbose --verbose $@ > >(grep --line-buffered -v 'Warning:' | grep --line-buffered -v 'at org' || true)
     fi
   else
     if [ -n "$STD_BUF" ]; then
-      $STD_BUF "$SIGNAL_CLI" --service-environment="staging" --verbose --verbose $@ | grep --line-buffered -v 'Warning:' | grep --line-buffered -v 'at org'
+      $STD_BUF "$SIGNAL_CLI" --service-environment="staging" --verbose --verbose $@ > >(grep --line-buffered -v 'Warning:' | grep --line-buffered -v 'at org' || true)
     else
-      "$SIGNAL_CLI" --service-environment="staging" --verbose --verbose $@ | grep --line-buffered -v 'Warning:' | grep --line-buffered -v 'at org'
+      "$SIGNAL_CLI" --service-environment="staging" --verbose --verbose $@ > >(grep --line-buffered -v 'Warning:' | grep --line-buffered -v 'at org' || true)
     fi
   fi
   set +x
@@ -294,6 +294,7 @@ fi
 run_main -a "$NUMBER_2" deleteLocalAccountData || true
 
 if [ ! -z "$GRAALVM_HOME" ]; then
-  "$GRAALVM_HOME"/lib/svm/bin/native-image-configure generate --input-dir=src/main/resources/META-INF/native-image/org.asamk/signal-cli/ --input-dir=graalvm-config-dir-linked/ --input-dir=graalvm-config-dir-main/ --output-dir=src/main/resources/META-INF/native-image/org.asamk/signal-cli/
+  NATIVE_IMAGE_UTILS="$GRAALVM_HOME/lib/svm/bin/native-image-utils"
+  "$NATIVE_IMAGE_UTILS" generate --input-dir=src/main/resources/META-INF/native-image/org.asamk/signal-cli/ --input-dir=graalvm-config-dir-linked/ --input-dir=graalvm-config-dir-main/ --output-dir=src/main/resources/META-INF/native-image/org.asamk/signal-cli/
   rm -r graalvm-config-dir-main graalvm-config-dir-linked
 fi

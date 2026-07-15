@@ -1,5 +1,22 @@
 # Changelog
 
+## [Unreleased]
+
+## [0.14.6] - 2026-07-12
+
+### Added
+
+- New `sendStory` command to post file attachment stories to "My Story" or to a group via `--group-id`
+
+### Improved
+
+- The account parameter `-a` now supports ACI in addition to phone number
+- Disabling read receipts in configuration now prevents sending read receipts (only sync message to linked devices is still sent)
+
+### Fixed
+
+- Sending to large groups is no longer slowed down by members that are already known to be unregistered; they are skipped instead of being retried via the legacy 1:1 send path on every send.
+
 ## [0.14.5] - 2026-06-11
 
 ### Changed

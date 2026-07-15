@@ -83,6 +83,7 @@ import org.asamk.signal.manager.storage.AttachmentStore;
 import org.asamk.signal.manager.storage.AvatarStore;
 import org.asamk.signal.manager.storage.SignalAccount;
 import org.asamk.signal.manager.storage.groups.GroupInfo;
+import org.asamk.signal.manager.storage.groups.GroupInfoV2;
 import org.asamk.signal.manager.storage.identities.IdentityInfo;
 import org.asamk.signal.manager.storage.recipients.RecipientAddress;
 import org.asamk.signal.manager.storage.recipients.RecipientId;
@@ -100,14 +101,18 @@ import org.signal.core.models.ServiceId.PNI;
 import org.signal.core.util.Base64;
 import org.signal.core.util.Hex;
 import org.signal.libsignal.protocol.InvalidMessageException;
+import org.signal.libsignal.protocol.NoSessionException;
 import org.signal.libsignal.usernames.BaseUsernameException;
 import org.signal.network.exceptions.NonSuccessfulResponseCodeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.signalservice.api.crypto.UntrustedIdentityException;
 import org.whispersystems.signalservice.api.messages.SignalServiceAttachment;
 import org.whispersystems.signalservice.api.messages.SignalServiceDataMessage;
+import org.whispersystems.signalservice.api.messages.SignalServiceGroupV2;
 import org.whispersystems.signalservice.api.messages.SignalServicePreview;
 import org.whispersystems.signalservice.api.messages.SignalServiceReceiptMessage;
+import org.whispersystems.signalservice.api.messages.SignalServiceStoryMessage;
 import org.whispersystems.signalservice.api.messages.SignalServiceTypingMessage;
 import org.whispersystems.signalservice.api.messages.calls.AnswerMessage;
 import org.whispersystems.signalservice.api.messages.calls.BusyMessage;
@@ -242,6 +247,11 @@ public class ManagerImpl implements Manager {
     @Override
     public String getSelfNumber() {
         return account.getNumber();
+    }
+
+    @Override
+    public String getSelfACI() {
+        return account.getAci().toString();
     }
 
     public void checkAccountState() throws IOException {
@@ -786,13 +796,20 @@ public class ManagerImpl implements Manager {
     ) {
         try {
             final var recipientId = context.getRecipientHelper().resolveRecipient(sender);
-            final var result = context.getSendHelper().sendReceiptMessage(receiptMessage, recipientId);
+            List<SendMessageResult> results;
+            if (receiptMessage.isDeliveryReceipt() || !Boolean.FALSE.equals(account.getConfigurationStore()
+                    .getReadReceipts())) {
+                final var result = context.getSendHelper().sendReceiptMessage(receiptMessage, recipientId);
+                results = List.of(toSendMessageResult(result));
+            } else {
+                results = List.of();
+            }
 
             final var aci = account.getRecipientAddressResolver().resolveRecipientAddress(recipientId).aci();
             if (aci.isPresent()) {
                 context.getSyncHelper().sendSyncReceiptMessage(aci.get(), receiptMessage);
             }
-            return new SendMessageResults(timestamp, Map.of(sender, List.of(toSendMessageResult(result))));
+            return new SendMessageResults(timestamp, Map.of(sender, results));
         } catch (UnregisteredRecipientException e) {
             return new SendMessageResults(timestamp,
                     Map.of(sender, List.of(SendMessageResult.unregisteredFailure(sender.toPartialRecipientAddress()))));
@@ -824,6 +841,94 @@ public class ManagerImpl implements Manager {
         final var messageBuilder = SignalServiceDataMessage.newBuilder();
         applyMessage(messageBuilder, message);
         return sendMessage(messageBuilder, recipients, false, Optional.of(editTargetTimestamp), message.urgent());
+    }
+
+    @Override
+    public SendMessageResults sendStory(
+            String attachment,
+            boolean allowsReplies,
+            Optional<GroupId> groupId
+    ) throws IOException, AttachmentInvalidException, GroupNotFoundException, NotAGroupMemberException {
+        final var file = new File(attachment);
+        final var mimeType = MimeUtils.getFileMimeType(file);
+        if (mimeType.isEmpty() || (!mimeType.get().startsWith("image/") && !mimeType.get().startsWith("video/"))) {
+            throw new AttachmentInvalidException(attachment,
+                    new IOException("Stories only support image and video attachments"));
+        }
+
+        if (groupId.isPresent()) {
+            return sendGroupStory(attachment, allowsReplies, groupId.get());
+        }
+
+        final var recipients = account.getRecipientStore()
+                .getRecipients(true, Optional.of(false), Set.of(), Optional.empty());
+        final var recipientIds = recipients.stream()
+                .filter(r -> !r.getRecipientId().equals(account.getSelfRecipientId()))
+                .filter(r -> r.getContact() != null && !r.getContact().hideStory())
+                .map(r -> r.getRecipientId())
+                .collect(Collectors.toSet());
+
+        if (recipientIds.isEmpty()) {
+            throw new IOException("No eligible contacts found for story delivery");
+        }
+
+        final var uploadedAttachment = context.getAttachmentHelper().uploadAttachment(attachment);
+        final var storyMessage = SignalServiceStoryMessage.forFileAttachment(account.getProfileKey().serialize(),
+                null,
+                uploadedAttachment,
+                allowsReplies,
+                List.of());
+        final var timestamp = getNextMessageTimestamp();
+
+        final var sendResults = context.getSendHelper()
+                .sendStoryMessage(storyMessage, timestamp, recipientIds, allowsReplies);
+
+        final var results = new HashMap<RecipientIdentifier, List<SendMessageResult>>();
+        for (final var sendResult : sendResults) {
+            final var result = toSendMessageResult(sendResult);
+            results.put(RecipientIdentifier.Single.fromAddress(result.address()), List.of(result));
+        }
+
+        return new SendMessageResults(timestamp, results);
+    }
+
+    private SendMessageResults sendGroupStory(
+            String attachment,
+            boolean allowsReplies,
+            GroupId groupId
+    ) throws IOException, AttachmentInvalidException, GroupNotFoundException, NotAGroupMemberException {
+        final var groupInfo = context.getGroupHelper().getGroup(groupId);
+        if (groupInfo == null) {
+            throw new GroupNotFoundException(groupId);
+        }
+        if (!groupInfo.isMember(account.getSelfRecipientId())) {
+            throw new NotAGroupMemberException(groupId, groupInfo.getTitle());
+        }
+        if (!(groupInfo instanceof GroupInfoV2 groupInfoV2)) {
+            throw new IOException("Stories are only supported for V2 groups");
+        }
+
+        final var uploadedAttachment = context.getAttachmentHelper().uploadAttachment(attachment);
+        final var groupContext = SignalServiceGroupV2.newBuilder(groupInfoV2.getMasterKey())
+                .withRevision(groupInfoV2.getGroup() == null ? 0 : groupInfoV2.getGroup().revision)
+                .build();
+        final var storyMessage = SignalServiceStoryMessage.forFileAttachment(account.getProfileKey().serialize(),
+                groupContext,
+                uploadedAttachment,
+                allowsReplies,
+                List.of());
+        final var timestamp = getNextMessageTimestamp();
+
+        final var sendResults = context.getSendHelper()
+                .sendGroupStoryMessage(storyMessage, timestamp, groupInfoV2, allowsReplies);
+
+        final var results = new HashMap<RecipientIdentifier, List<SendMessageResult>>();
+        for (final var sendResult : sendResults) {
+            final var result = toSendMessageResult(sendResult);
+            results.put(RecipientIdentifier.Single.fromAddress(result.address()), List.of(result));
+        }
+
+        return new SendMessageResults(timestamp, results);
     }
 
     private void applyMessage(
@@ -1818,8 +1923,10 @@ public class ManagerImpl implements Manager {
         var callMessage = SignalServiceCallMessage.forOffer(offerMessage, null);
         try {
             dependencies.getMessageSender().sendCallMessage(address, null, callMessage);
-        } catch (org.whispersystems.signalservice.api.crypto.UntrustedIdentityException e) {
+        } catch (UntrustedIdentityException e) {
             throw new IOException("Untrusted identity for call recipient", e);
+        } catch (NoSessionException e) {
+            throw new IOException("No session for call recipient", e);
         }
     }
 
@@ -1835,8 +1942,10 @@ public class ManagerImpl implements Manager {
         var callMessage = SignalServiceCallMessage.forAnswer(answerMessage, null);
         try {
             dependencies.getMessageSender().sendCallMessage(address, null, callMessage);
-        } catch (org.whispersystems.signalservice.api.crypto.UntrustedIdentityException e) {
+        } catch (UntrustedIdentityException e) {
             throw new IOException("Untrusted identity for call recipient", e);
+        } catch (NoSessionException e) {
+            throw new IOException("No session for call recipient", e);
         }
     }
 
@@ -1852,8 +1961,10 @@ public class ManagerImpl implements Manager {
         var callMessage = SignalServiceCallMessage.forIceUpdates(iceUpdates, null);
         try {
             dependencies.getMessageSender().sendCallMessage(address, null, callMessage);
-        } catch (org.whispersystems.signalservice.api.crypto.UntrustedIdentityException e) {
+        } catch (UntrustedIdentityException e) {
             throw new IOException("Untrusted identity for call recipient", e);
+        } catch (NoSessionException e) {
+            throw new IOException("No session for call recipient", e);
         }
     }
 
@@ -1876,8 +1987,10 @@ public class ManagerImpl implements Manager {
         var callMessage = SignalServiceCallMessage.forHangup(hangupMessage, null);
         try {
             dependencies.getMessageSender().sendCallMessage(address, null, callMessage);
-        } catch (org.whispersystems.signalservice.api.crypto.UntrustedIdentityException e) {
+        } catch (UntrustedIdentityException e) {
             throw new IOException("Untrusted identity for call recipient", e);
+        } catch (NoSessionException e) {
+            throw new IOException("No session for call recipient", e);
         }
     }
 
@@ -1892,8 +2005,10 @@ public class ManagerImpl implements Manager {
         var callMessage = SignalServiceCallMessage.forBusy(busyMessage, null);
         try {
             dependencies.getMessageSender().sendCallMessage(address, null, callMessage);
-        } catch (org.whispersystems.signalservice.api.crypto.UntrustedIdentityException e) {
+        } catch (UntrustedIdentityException e) {
             throw new IOException("Untrusted identity for call recipient", e);
+        } catch (NoSessionException e) {
+            throw new IOException("No session for call recipient", e);
         }
     }
 
