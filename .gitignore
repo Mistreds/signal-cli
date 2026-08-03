@@ -3,6 +3,7 @@
 .idea/*
 !.idea/codeStyles/
 build/
+lib/bin/
 *~
 *.swp
 *.iml
