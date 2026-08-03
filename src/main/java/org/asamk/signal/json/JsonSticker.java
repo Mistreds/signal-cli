@@ -1,9 +1,9 @@
 package org.asamk.signal.json;
 
-import io.micronaut.jsonschema.JsonSchema;
-
 import org.asamk.signal.manager.api.MessageEnvelope;
 import org.asamk.signal.util.Hex;
+
+import io.micronaut.jsonschema.JsonSchema;
 
 @JsonSchema(title = "Sticker")
 public record JsonSticker(String packId, int stickerId) {

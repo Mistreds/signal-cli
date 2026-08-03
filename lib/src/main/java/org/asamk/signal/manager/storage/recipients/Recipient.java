@@ -25,6 +25,8 @@ public class Recipient {
 
     private final Long unregisteredTimestamp;
 
+    private final boolean pniSignatureVerified;
+
     private final byte[] storageRecord;
 
     public Recipient(
@@ -36,6 +38,7 @@ public class Recipient {
             final Profile profile,
             final Boolean discoverable,
             final Long unregisteredTimestamp,
+            final boolean pniSignatureVerified,
             final byte[] storageRecord
     ) {
         this.recipientId = recipientId;
@@ -46,6 +49,7 @@ public class Recipient {
         this.profile = profile;
         this.discoverable = discoverable;
         this.unregisteredTimestamp = unregisteredTimestamp;
+        this.pniSignatureVerified = pniSignatureVerified;
         this.storageRecord = storageRecord;
     }
 
@@ -58,6 +62,7 @@ public class Recipient {
         profile = builder.profile;
         discoverable = builder.discoverable;
         unregisteredTimestamp = builder.unregisteredTimestamp;
+        pniSignatureVerified = builder.pniSignatureVerified;
         storageRecord = builder.storageRecord;
     }
 
@@ -73,6 +78,9 @@ public class Recipient {
         builder.profileKey = copy.getProfileKey();
         builder.expiringProfileKeyCredential = copy.getExpiringProfileKeyCredential();
         builder.profile = copy.getProfile();
+        builder.discoverable = copy.getDiscoverable();
+        builder.unregisteredTimestamp = copy.getUnregisteredTimestamp();
+        builder.pniSignatureVerified = copy.isPniSignatureVerified();
         builder.storageRecord = copy.getStorageRecord();
         return builder;
     }
@@ -113,6 +121,10 @@ public class Recipient {
         return unregisteredTimestamp == null;
     }
 
+    public boolean isPniSignatureVerified() {
+        return pniSignatureVerified;
+    }
+
     public byte[] getStorageRecord() {
         return storageRecord;
     }
@@ -127,12 +139,19 @@ public class Recipient {
                 && Objects.equals(contact, recipient.contact)
                 && Objects.equals(profileKey, recipient.profileKey)
                 && Objects.equals(expiringProfileKeyCredential, recipient.expiringProfileKeyCredential)
-                && Objects.equals(profile, recipient.profile);
+                && Objects.equals(profile, recipient.profile)
+                && pniSignatureVerified == recipient.pniSignatureVerified;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(recipientId, address, contact, profileKey, expiringProfileKeyCredential, profile);
+        return Objects.hash(recipientId,
+                address,
+                contact,
+                profileKey,
+                expiringProfileKeyCredential,
+                profile,
+                pniSignatureVerified);
     }
 
     public static final class Builder {
@@ -145,6 +164,7 @@ public class Recipient {
         private Profile profile;
         private Boolean discoverable;
         private Long unregisteredTimestamp;
+        private boolean pniSignatureVerified;
         private byte[] storageRecord;
 
         private Builder() {
@@ -187,6 +207,11 @@ public class Recipient {
 
         public Builder withUnregisteredTimestamp(final Long val) {
             unregisteredTimestamp = val;
+            return this;
+        }
+
+        public Builder withPniSignatureVerified(final boolean val) {
+            pniSignatureVerified = val;
             return this;
         }
 

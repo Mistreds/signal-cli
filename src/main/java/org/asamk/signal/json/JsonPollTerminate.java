@@ -1,8 +1,8 @@
 package org.asamk.signal.json;
 
-import io.micronaut.jsonschema.JsonSchema;
-
 import org.asamk.signal.manager.api.MessageEnvelope;
+
+import io.micronaut.jsonschema.JsonSchema;
 
 @JsonSchema(title = "PollTerminate")
 public record JsonPollTerminate(long targetSentTimestamp) {

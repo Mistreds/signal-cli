@@ -34,8 +34,7 @@ public final class ManagerMock {
     }
 
     public static Manager create(final String selfNumber, final State state) {
-        return (Manager) Proxy.newProxyInstance(
-                Manager.class.getClassLoader(),
+        return (Manager) Proxy.newProxyInstance(Manager.class.getClassLoader(),
                 new Class<?>[]{Manager.class},
                 (proxy, method, args) -> {
                     final var methodName = method.getName();
@@ -69,8 +68,7 @@ public final class ManagerMock {
                         default:
                             return defaultValue(method.getReturnType());
                     }
-                }
-        );
+                });
     }
 
     private static Object defaultValue(final Class<?> returnType) {

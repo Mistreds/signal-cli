@@ -80,6 +80,21 @@ public record Contact(
         return givenName + " " + familyName;
     }
 
+    public String getDisplayNickname() {
+        final var noNickGivenName = Util.isEmpty(nickNameGivenName);
+        final var noNickFamilyName = Util.isEmpty(nickNameFamilyName);
+
+        if (noNickGivenName && noNickFamilyName) {
+            return null;
+        } else if (noNickGivenName) {
+            return nickNameFamilyName;
+        } else if (noNickFamilyName) {
+            return nickNameGivenName;
+        }
+
+        return nickNameGivenName + " " + nickNameFamilyName;
+    }
+
     public static final class Builder {
 
         private String givenName;

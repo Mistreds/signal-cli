@@ -1,12 +1,13 @@
 package org.asamk.signal.json;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import io.micronaut.jsonschema.JsonSchema;
 
 import org.asamk.signal.manager.api.MessageEnvelope;
 
 import java.util.List;
 import java.util.UUID;
+
+import io.micronaut.jsonschema.JsonSchema;
 
 @JsonSchema(title = "Quote")
 public record JsonQuote(

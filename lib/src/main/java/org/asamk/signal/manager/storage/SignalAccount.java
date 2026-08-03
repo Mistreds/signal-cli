@@ -153,6 +153,10 @@ public class SignalAccount implements Closeable {
     private final KeyValueEntry<Long> lastReceiveTimestamp = new KeyValueEntry<>("last-receive-timestamp",
             long.class,
             0L);
+    private final KeyValueEntry<Long> lastAppliedPniChangeServerTimestamp = new KeyValueEntry<>(
+            "last-applied-pni-change-server-timestamp",
+            long.class,
+            0L);
     private final KeyValueEntry<Boolean> needsToRetryFailedMessages = new KeyValueEntry<>("retry-failed-messages",
             Boolean.class,
             true);
@@ -292,7 +296,7 @@ public class SignalAccount implements Closeable {
             final ACI aci,
             final PNI pni,
             final String password,
-            final String encryptedDeviceName,
+            final byte[] encryptedDeviceName,
             final IdentityKeyPair aciIdentity,
             final IdentityKeyPair pniIdentity,
             final ProfileKey profileKey,
@@ -307,12 +311,13 @@ public class SignalAccount implements Closeable {
         getRecipientTrustedResolver().resolveSelfRecipientTrusted(getSelfRecipientAddress());
         this.password = password;
         this.profileKey = profileKey;
-        this.encryptedDeviceName = encryptedDeviceName;
+        this.encryptedDeviceName = org.signal.core.util.Base64.encodeWithoutPadding(encryptedDeviceName);
         this.aciAccountData.setIdentityKeyPair(aciIdentity);
         this.pniAccountData.setIdentityKeyPair(pniIdentity);
         this.registered = false;
         this.isMultiDevice = true;
         setLastReceiveTimestamp(0L);
+        setLastAppliedPniChangeServerTimestamp(0L);
         if (accountEntropyPool != null) {
             this.pinMasterKey = null;
             this.accountEntropyPool = accountEntropyPool;
@@ -368,6 +373,7 @@ public class SignalAccount implements Closeable {
         init();
         this.registrationLockPin = pin;
         setLastReceiveTimestamp(0L);
+        setLastAppliedPniChangeServerTimestamp(0L);
         save();
 
         setPreKeys(ServiceIdType.ACI, aciPreKeys);
@@ -1725,7 +1731,7 @@ public class SignalAccount implements Closeable {
     }
 
     public boolean isRegistered() {
-        return registered;
+        return registered && deviceId > 0;
     }
 
     public void setRegistered(final boolean registered) {
@@ -1751,6 +1757,14 @@ public class SignalAccount implements Closeable {
 
     public void setLastReceiveTimestamp(final long value) {
         getKeyValueStore().storeEntry(lastReceiveTimestamp, value);
+    }
+
+    public long getLastAppliedPniChangeServerTimestamp() {
+        return getKeyValueStore().getEntry(lastAppliedPniChangeServerTimestamp);
+    }
+
+    public void setLastAppliedPniChangeServerTimestamp(final long value) {
+        getKeyValueStore().storeEntry(lastAppliedPniChangeServerTimestamp, value);
     }
 
     public void setNeedsToRetryFailedMessages(final boolean value) {

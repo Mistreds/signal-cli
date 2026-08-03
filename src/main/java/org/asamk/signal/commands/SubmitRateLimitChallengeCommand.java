@@ -42,7 +42,8 @@ public class SubmitRateLimitChallengeCommand implements JsonRpcLocalCommand {
             throw new IOErrorException("Submit challenge error: " + e.getMessage(), e);
         } catch (CaptchaRejectedException e) {
             throw new CaptchaRejectedErrorException(
-                    "Captcha rejected, it may be outdated, already used or solved from a different IP address.", e);
+                    "Captcha rejected, it may be outdated, already used or solved from a different IP address.",
+                    e);
         }
     }
 }

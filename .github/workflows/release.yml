@@ -35,55 +35,19 @@ jobs:
           mv ./signal-cli-archive-${{ env.ARCHIVE_JAVA_VERSION }}/* .
           echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
 
-      - name: Create release
-        id: create_release
-        uses: actions/create-release@v1
+      - name: Create draft release and upload assets
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ steps.version.outputs.version }} # note: added `v`
-          release_name: v${{ steps.version.outputs.version }} # note: added `v`
-          draft: true
-
-      - name: Upload archive
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: signal-cli-${{ steps.version.outputs.version }}.tar.gz
-          asset_name: signal-cli-${{ steps.version.outputs.version }}.tar.gz
-          asset_content_type: application/x-compressed-tar # .tar.gz
-
-      - name: Upload Linux native archive
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: signal-cli-${{ steps.version.outputs.version }}-Linux-native.tar.gz
-          asset_name: signal-cli-${{ steps.version.outputs.version }}-Linux-native.tar.gz
-          asset_content_type: application/x-compressed-tar # .tar.gz
-
-      - name: Upload Linux client archive
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: signal-cli-${{ steps.version.outputs.version }}-Linux-client.tar.gz
-          asset_name: signal-cli-${{ steps.version.outputs.version }}-Linux-client.tar.gz
-          asset_content_type: application/x-compressed-tar # .tar.gz
-
-      - name: Upload JSON schemas archive
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: signal-cli-${{ steps.version.outputs.version }}-json-schemas.tar.gz
-          asset_name: signal-cli-${{ steps.version.outputs.version }}-json-schemas.tar.gz
-          asset_content_type: application/x-compressed-tar # .tar.gz
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v${{ steps.version.outputs.version }}" \
+            --repo "${{ github.repository }}" \
+            --title "v${{ steps.version.outputs.version }}" \
+            --draft \
+            --verify-tag \
+            "signal-cli-${{ steps.version.outputs.version }}.tar.gz" \
+            "signal-cli-${{ steps.version.outputs.version }}-Linux-native.tar.gz" \
+            "signal-cli-${{ steps.version.outputs.version }}-Linux-client.tar.gz" \
+            "signal-cli-${{ steps.version.outputs.version }}-json-schemas.tar.gz"
 
   build-container:
     needs: release
@@ -104,7 +68,7 @@ jobs:
 
       - name: Build Image
         id: build_image
-        uses: redhat-actions/buildah-build@v2
+        uses: redhat-actions/buildah-build@v3
         with:
           image: ${{ env.IMAGE_NAME }}
           tags: latest ${{ github.sha }} ${{ needs.release.outputs.version }}
@@ -112,7 +76,7 @@ jobs:
           oci: true
 
       - name: Push To GHCR
-        uses: redhat-actions/push-to-registry@v2
+        uses: redhat-actions/push-to-registry@v3
         id: push
         with:
           image: ${{ steps.build_image.outputs.image }}
@@ -145,7 +109,7 @@ jobs:
 
       - name: Build Image
         id: build_image
-        uses: redhat-actions/buildah-build@v2
+        uses: redhat-actions/buildah-build@v3
         with:
           image: ${{ env.IMAGE_NAME }}
           tags: latest-native ${{ github.sha }}-native ${{ needs.release.outputs.version }}-native
@@ -153,7 +117,7 @@ jobs:
           oci: true
 
       - name: Push To GHCR
-        uses: redhat-actions/push-to-registry@v2
+        uses: redhat-actions/push-to-registry@v3
         id: push
         with:
           image: ${{ steps.build_image.outputs.image }}
@@ -186,7 +150,7 @@ jobs:
 
       - name: Build Image
         id: build_image
-        uses: redhat-actions/buildah-build@v2
+        uses: redhat-actions/buildah-build@v3
         with:
           image: ${{ env.IMAGE_NAME }}
           tags: latest-client ${{ github.sha }}-client ${{ needs.release.outputs.version }}-client
@@ -194,7 +158,7 @@ jobs:
           oci: true
 
       - name: Push To GHCR
-        uses: redhat-actions/push-to-registry@v2
+        uses: redhat-actions/push-to-registry@v3
         id: push
         with:
           image: ${{ steps.build_image.outputs.image }}

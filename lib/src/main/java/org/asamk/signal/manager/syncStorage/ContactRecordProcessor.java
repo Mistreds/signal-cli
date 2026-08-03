@@ -358,6 +358,8 @@ public class ContactRecordProcessor extends DefaultStorageRecordProcessor<Signal
             }
         }
         account.getRecipientStore()
+                .storePniSignatureVerified(connection, recipientId, contactProto.pniSignatureVerified);
+        account.getRecipientStore()
                 .storeStorageRecord(connection, recipientId, contactRecord.getId(), contactProto.encode());
     }
 

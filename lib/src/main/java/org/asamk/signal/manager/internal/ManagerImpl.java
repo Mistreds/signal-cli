@@ -98,8 +98,10 @@ import org.asamk.signal.manager.util.StickerUtils;
 import org.signal.core.models.ServiceId;
 import org.signal.core.models.ServiceId.ACI;
 import org.signal.core.models.ServiceId.PNI;
-import org.signal.core.util.Base64;
 import org.signal.core.util.Hex;
+import org.signal.core.util.crypto.DeviceName;
+import org.signal.core.util.crypto.DeviceNameCipher;
+import org.signal.libsignal.net.LinkedDevice;
 import org.signal.libsignal.protocol.InvalidMessageException;
 import org.signal.libsignal.protocol.NoSessionException;
 import org.signal.libsignal.usernames.BaseUsernameException;
@@ -120,10 +122,8 @@ import org.whispersystems.signalservice.api.messages.calls.HangupMessage;
 import org.whispersystems.signalservice.api.messages.calls.IceUpdateMessage;
 import org.whispersystems.signalservice.api.messages.calls.OfferMessage;
 import org.whispersystems.signalservice.api.messages.calls.SignalServiceCallMessage;
-import org.whispersystems.signalservice.api.messages.multidevice.DeviceInfo;
 import org.whispersystems.signalservice.api.push.ServiceIdType;
 import org.whispersystems.signalservice.api.push.exceptions.CdsiResourceExhaustedException;
-import org.whispersystems.signalservice.api.util.DeviceNameUtil;
 import org.whispersystems.signalservice.api.util.StreamDetails;
 import org.whispersystems.signalservice.internal.util.Util;
 
@@ -160,6 +160,7 @@ import okio.Utf8;
 
 import static org.asamk.signal.manager.config.ServiceConfig.MAX_MESSAGE_SIZE_BYTES;
 import static org.asamk.signal.manager.util.Utils.handleResponseException;
+import static org.asamk.signal.manager.util.Utils.handleResponseExceptionSuspend;
 import static org.signal.core.util.StringExtensionsKt.splitByByteLength;
 
 public class ManagerImpl implements Manager {
@@ -483,23 +484,26 @@ public class ManagerImpl implements Manager {
 
     @Override
     public List<Device> getLinkedDevices() throws IOException {
-        var devices = handleResponseException(dependencies.getLinkDeviceApi().getDevices());
+        final List<LinkedDevice> devices = handleResponseExceptionSuspend(cont -> dependencies.getLinkDeviceApi()
+                .getDevices(cont));
         account.setMultiDevice(devices.size() > 1);
-        var identityKey = account.getAciIdentityKeyPair().getPrivateKey();
+        var identityKey = account.getAciIdentityKeyPair();
         return devices.stream().map(d -> {
-            String deviceName = d.getName();
-            if (deviceName != null) {
+            String deviceName = null;
+            if (d.getEncryptedName() != null && d.getEncryptedName().length > 0) {
                 try {
-                    deviceName = DeviceNameUtil.decryptDeviceName(deviceName, identityKey);
-                } catch (IOException e) {
+                    deviceName = new String(DeviceNameCipher.decryptDeviceName(DeviceName.ADAPTER.decode(d.getEncryptedName()),
+                            identityKey), StandardCharsets.UTF_8);
+                } catch (Exception e) {
                     logger.debug("Failed to decrypt device name, maybe plain text?", e);
+                    deviceName = new String(d.getEncryptedName(), StandardCharsets.UTF_8);
                 }
             }
             final var createdAt = getPlaintextCreatedAt(d);
             return new Device(d.getId(),
                     deviceName,
                     createdAt == null ? 0 : createdAt,
-                    d.getLastSeen(),
+                    d.getLastSeen().toEpochMilli(),
                     d.getId() == account.getDeviceId());
         }).toList();
     }
@@ -519,7 +523,7 @@ public class ManagerImpl implements Manager {
         }
     }
 
-    private Long getPlaintextCreatedAt(DeviceInfo d) {
+    private Long getPlaintextCreatedAt(LinkedDevice d) {
         final var DECRYPTION_INFO = "deviceCreatedAt";
         var identityKey = account.getAciIdentityKeyPair().getPrivateKey();
         try {
@@ -527,8 +531,9 @@ public class ManagerImpl implements Manager {
             var associatedData = new ByteArrayOutputStream();
             associatedData.write(d.getId());
             associatedData.write(ByteBuffer.allocate(4).putInt(d.getRegistrationId()).array());
-            var createdAtPlaintext = identityKey.open(Base64.decode(d.getCreatedAtCiphertext()
-                    .getBytes(StandardCharsets.UTF_8)), DECRYPTION_INFO, associatedData.toByteArray());
+            var createdAtPlaintext = identityKey.open(d.getCreatedAtCiphertext(),
+                    DECRYPTION_INFO,
+                    associatedData.toByteArray());
             return ByteBuffer.wrap(createdAtPlaintext).getLong();
         } catch (Exception e) {
             logger.warn("Failed while reading the protobuf.", e);
@@ -1701,8 +1706,15 @@ public class ManagerImpl implements Manager {
         }
 
         final var contact = account.getContactStore().getContact(recipientId);
-        if (contact != null && !Util.isEmpty(contact.getName())) {
-            return contact.getName();
+        if (contact != null) {
+            final var nickname = contact.getDisplayNickname();
+            if (!Util.isEmpty(nickname)) {
+                return nickname;
+            }
+
+            if (!Util.isEmpty(contact.getName())) {
+                return contact.getName();
+            }
         }
 
         final var profile = context.getProfileHelper().getRecipientProfile(recipientId);

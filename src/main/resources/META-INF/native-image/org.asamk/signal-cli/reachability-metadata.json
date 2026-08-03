@@ -269,6 +269,78 @@
       ]
     },
     {
+      "type": "com.sun.imageio.plugins.jpeg.JPEGImageReader",
+      "jniAccessible": true,
+      "methods": [
+        {
+          "name": "acceptPixels",
+          "parameterTypes": [
+            "int",
+            "boolean"
+          ]
+        },
+        {
+          "name": "passComplete",
+          "parameterTypes": []
+        },
+        {
+          "name": "passStarted",
+          "parameterTypes": [
+            "int"
+          ]
+        },
+        {
+          "name": "pushBack",
+          "parameterTypes": [
+            "int"
+          ]
+        },
+        {
+          "name": "readInputData",
+          "parameterTypes": [
+            "byte[]",
+            "int",
+            "int"
+          ]
+        },
+        {
+          "name": "setImageData",
+          "parameterTypes": [
+            "int",
+            "int",
+            "int",
+            "int",
+            "int",
+            "byte[]"
+          ]
+        },
+        {
+          "name": "skipInputBytes",
+          "parameterTypes": [
+            "long"
+          ]
+        },
+        {
+          "name": "skipPastImage",
+          "parameterTypes": [
+            "int"
+          ]
+        },
+        {
+          "name": "warningOccurred",
+          "parameterTypes": [
+            "int"
+          ]
+        },
+        {
+          "name": "warningWithMessage",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        }
+      ]
+    },
+    {
       "type": "com.sun.security.auth.module.UnixSystem",
       "jniAccessible": true,
       "fields": [
@@ -738,6 +810,183 @@
       "allPublicMethods": true
     },
     {
+      "type": "java.awt.GraphicsEnvironment",
+      "jniAccessible": true,
+      "methods": [
+        {
+          "name": "isHeadless",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "java.awt.image.BufferedImage",
+      "jniAccessible": true,
+      "fields": [
+        {
+          "name": "colorModel"
+        },
+        {
+          "name": "imageType"
+        },
+        {
+          "name": "raster"
+        }
+      ],
+      "methods": [
+        {
+          "name": "getRGB",
+          "parameterTypes": [
+            "int",
+            "int",
+            "int",
+            "int",
+            "int[]",
+            "int",
+            "int"
+          ]
+        },
+        {
+          "name": "setRGB",
+          "parameterTypes": [
+            "int",
+            "int",
+            "int",
+            "int",
+            "int[]",
+            "int",
+            "int"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "java.awt.image.ColorModel",
+      "jniAccessible": true,
+      "fields": [
+        {
+          "name": "colorSpace"
+        },
+        {
+          "name": "colorSpaceType"
+        },
+        {
+          "name": "isAlphaPremultiplied"
+        },
+        {
+          "name": "is_sRGB"
+        },
+        {
+          "name": "nBits"
+        },
+        {
+          "name": "numComponents"
+        },
+        {
+          "name": "supportsAlpha"
+        },
+        {
+          "name": "transparency"
+        }
+      ],
+      "methods": [
+        {
+          "name": "getRGBdefault",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "java.awt.image.Raster",
+      "jniAccessible": true,
+      "fields": [
+        {
+          "name": "dataBuffer"
+        },
+        {
+          "name": "height"
+        },
+        {
+          "name": "minX"
+        },
+        {
+          "name": "minY"
+        },
+        {
+          "name": "numBands"
+        },
+        {
+          "name": "numDataElements"
+        },
+        {
+          "name": "sampleModel"
+        },
+        {
+          "name": "sampleModelTranslateX"
+        },
+        {
+          "name": "sampleModelTranslateY"
+        },
+        {
+          "name": "width"
+        }
+      ]
+    },
+    {
+      "type": "java.awt.image.SampleModel",
+      "jniAccessible": true,
+      "fields": [
+        {
+          "name": "height"
+        },
+        {
+          "name": "width"
+        }
+      ],
+      "methods": [
+        {
+          "name": "getPixels",
+          "parameterTypes": [
+            "int",
+            "int",
+            "int",
+            "int",
+            "int[]",
+            "java.awt.image.DataBuffer"
+          ]
+        },
+        {
+          "name": "setPixels",
+          "parameterTypes": [
+            "int",
+            "int",
+            "int",
+            "int",
+            "int[]",
+            "java.awt.image.DataBuffer"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "java.awt.image.SinglePixelPackedSampleModel",
+      "jniAccessible": true,
+      "fields": [
+        {
+          "name": "bitMasks"
+        },
+        {
+          "name": "bitOffsets"
+        },
+        {
+          "name": "bitSizes"
+        },
+        {
+          "name": "maxBitSize"
+        }
+      ]
+    },
+    {
       "type": "java.io.File",
       "methods": [
         {
@@ -914,7 +1163,8 @@
       "type": "java.lang.Integer",
       "allDeclaredFields": true,
       "allDeclaredMethods": true,
-      "allDeclaredConstructors": true
+      "allDeclaredConstructors": true,
+      "jniAccessible": true
     },
     {
       "type": "java.lang.Iterable",
@@ -949,6 +1199,7 @@
     },
     {
       "type": "java.lang.Object",
+      "jniAccessible": true,
       "methods": [
         {
           "name": "equals",
@@ -983,6 +1234,18 @@
     },
     {
       "type": "java.lang.String[]"
+    },
+    {
+      "type": "java.lang.System",
+      "jniAccessible": true,
+      "methods": [
+        {
+          "name": "load",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        }
+      ]
     },
     {
       "type": "java.lang.Thread",
@@ -1454,6 +1717,33 @@
           "name": "value"
         }
       ]
+    },
+    {
+      "type": "javax.imageio.plugins.jpeg.JPEGHuffmanTable",
+      "jniAccessible": true,
+      "fields": [
+        {
+          "name": "lengths"
+        },
+        {
+          "name": "values"
+        }
+      ]
+    },
+    {
+      "type": "javax.imageio.plugins.jpeg.JPEGQTable",
+      "jniAccessible": true,
+      "fields": [
+        {
+          "name": "qTable"
+        }
+      ]
+    },
+    {
+      "type": "javax.imageio.spi.ImageReaderSpi"
+    },
+    {
+      "type": "javax.imageio.spi.ImageWriterSpi"
     },
     {
       "type": "javax.security.auth.x500.X500Principal",
@@ -4544,6 +4834,15 @@
       ]
     },
     {
+      "type": "org.bouncycastle.jcajce.provider.asymmetric.CMCE$Mappings",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "org.bouncycastle.jcajce.provider.asymmetric.COMPOSITE$Mappings",
       "methods": [
         {
@@ -4554,6 +4853,15 @@
     },
     {
       "type": "org.bouncycastle.jcajce.provider.asymmetric.CONTEXT$Mappings",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "org.bouncycastle.jcajce.provider.asymmetric.CompositeKEMs$Mappings",
       "methods": [
         {
           "name": "<init>",
@@ -4653,6 +4961,15 @@
     },
     {
       "type": "org.bouncycastle.jcajce.provider.asymmetric.Falcon$Mappings",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "org.bouncycastle.jcajce.provider.asymmetric.FrodoKEM$Mappings",
       "methods": [
         {
           "name": "<init>",
@@ -5123,6 +5440,15 @@
       ]
     },
     {
+      "type": "org.bouncycastle.jcajce.provider.symmetric.ARGON2$Mappings",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "org.bouncycastle.jcajce.provider.symmetric.ARIA$Mappings",
       "methods": [
         {
@@ -5268,6 +5594,15 @@
     },
     {
       "type": "org.bouncycastle.jcajce.provider.symmetric.IDEA$Mappings",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "org.bouncycastle.jcajce.provider.symmetric.LEA$Mappings",
       "methods": [
         {
           "name": "<init>",
@@ -5493,6 +5828,15 @@
     },
     {
       "type": "org.bouncycastle.jcajce.provider.symmetric.VMPCKSA3$Mappings",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "org.bouncycastle.jcajce.provider.symmetric.XChaCha$Mappings",
       "methods": [
         {
           "name": "<init>",
@@ -5801,14 +6145,38 @@
       ]
     },
     {
+      "type": "org.signal.libsignal.internal.LinkedDeviceInternal",
+      "jniAccessible": true,
+      "methods": [
+        {
+          "name": "fromNative",
+          "parameterTypes": [
+            "java.lang.Object",
+            "java.lang.Object",
+            "java.lang.Object",
+            "java.lang.Object",
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
       "type": "org.signal.libsignal.internal.NativeHandleGuard$SimpleOwner",
       "jniAccessible": true,
+      "fields": [
+        {
+          "name": "nativeHandle"
+        }
+      ],
       "methods": [
         {
           "name": "unsafeNativeHandleWithoutGuard",
           "parameterTypes": []
         }
       ]
+    },
+    {
+      "type": "org.signal.libsignal.net.AuthenticatedChatConnection"
     },
     {
       "type": "org.signal.libsignal.net.CdsiLookupResponse",
@@ -5887,6 +6255,12 @@
         {
           "name": "receivedQueueEmpty",
           "parameterTypes": []
+        },
+        {
+          "name": "receivedServerTimestamp",
+          "parameterTypes": [
+            "long"
+          ]
         }
       ]
     },
@@ -7706,6 +8080,31 @@
       ]
     },
     {
+      "type": "org.whispersystems.signalservice.api.account.DeviceAttributes",
+      "methods": [
+        {
+          "name": "getCapabilities",
+          "parameterTypes": []
+        },
+        {
+          "name": "getFetchesMessages",
+          "parameterTypes": []
+        },
+        {
+          "name": "getName",
+          "parameterTypes": []
+        },
+        {
+          "name": "getPniRegistrationId",
+          "parameterTypes": []
+        },
+        {
+          "name": "getRegistrationId",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "org.whispersystems.signalservice.api.groupsv2.CredentialResponse",
       "allDeclaredFields": true,
       "allDeclaredMethods": true,
@@ -7830,6 +8229,26 @@
       "allDeclaredFields": true,
       "allDeclaredMethods": true,
       "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.whispersystems.signalservice.api.messages.multidevice.RegisterAsSecondaryDeviceResponse",
+      "fields": [
+        {
+          "name": "deviceId"
+        },
+        {
+          "name": "pni"
+        },
+        {
+          "name": "uuid"
+        }
+      ],
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
     },
     {
       "type": "org.whispersystems.signalservice.api.profiles.SignalServiceProfile",
@@ -8732,6 +9151,39 @@
       "allDeclaredConstructors": true
     },
     {
+      "type": "org.whispersystems.signalservice.internal.push.RegisterAsSecondaryDeviceRequest",
+      "methods": [
+        {
+          "name": "getAccountAttributes",
+          "parameterTypes": []
+        },
+        {
+          "name": "getAciPqLastResortPreKey",
+          "parameterTypes": []
+        },
+        {
+          "name": "getAciSignedPreKey",
+          "parameterTypes": []
+        },
+        {
+          "name": "getGcmToken",
+          "parameterTypes": []
+        },
+        {
+          "name": "getPniPqLastResortPreKey",
+          "parameterTypes": []
+        },
+        {
+          "name": "getPniSignedPreKey",
+          "parameterTypes": []
+        },
+        {
+          "name": "getVerificationCode",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "org.whispersystems.signalservice.internal.push.RegistrationSessionMetadataJson",
       "allDeclaredFields": true,
       "methods": [
@@ -9415,6 +9867,29 @@
       ]
     },
     {
+      "type": "org.whispersystems.signalservice.internal.storage.protos.StickerPackRecord",
+      "fields": [
+        {
+          "name": "deletedAtTimestamp"
+        },
+        {
+          "name": "packId"
+        },
+        {
+          "name": "packKey"
+        },
+        {
+          "name": "position"
+        }
+      ]
+    },
+    {
+      "type": "org.whispersystems.signalservice.internal.storage.protos.StickerPackRecord$Builder"
+    },
+    {
+      "type": "org.whispersystems.signalservice.internal.storage.protos.StickerPackRecord$Companion"
+    },
+    {
       "type": "org.whispersystems.signalservice.internal.storage.protos.StorageItem",
       "fields": [
         {
@@ -9564,6 +10039,41 @@
         },
         {
           "name": "status_"
+        }
+      ]
+    },
+    {
+      "type": "sun.awt.image.ByteComponentRaster",
+      "jniAccessible": true,
+      "fields": [
+        {
+          "name": "data"
+        },
+        {
+          "name": "dataOffsets"
+        },
+        {
+          "name": "pixelStride"
+        },
+        {
+          "name": "scanlineStride"
+        },
+        {
+          "name": "type"
+        }
+      ]
+    },
+    {
+      "type": "sun.java2d.Disposer",
+      "jniAccessible": true,
+      "methods": [
+        {
+          "name": "addRecord",
+          "parameterTypes": [
+            "java.lang.Object",
+            "long",
+            "long"
+          ]
         }
       ]
     },
@@ -10345,6 +10855,21 @@
       "glob": "META-INF/services/java.util.spi.ResourceBundleControlProvider"
     },
     {
+      "glob": "META-INF/services/javax.imageio.spi.ImageInputStreamSpi"
+    },
+    {
+      "glob": "META-INF/services/javax.imageio.spi.ImageOutputStreamSpi"
+    },
+    {
+      "glob": "META-INF/services/javax.imageio.spi.ImageReaderSpi"
+    },
+    {
+      "glob": "META-INF/services/javax.imageio.spi.ImageTranscoderSpi"
+    },
+    {
+      "glob": "META-INF/services/javax.imageio.spi.ImageWriterSpi"
+    },
+    {
       "glob": "META-INF/services/kotlin.reflect.jvm.internal.impl.km.internal.extensions.MetadataExtensions"
     },
     {
@@ -10459,7 +10984,22 @@
       "glob": "sun/text/resources/LineBreakIteratorData"
     },
     {
+      "module": "java.desktop",
+      "glob": "sun/awt/resources/awt_fr.properties"
+    },
+    {
+      "module": "java.desktop",
+      "glob": "sun/awt/resources/awt_fr_FR.properties"
+    },
+    {
+      "module": "java.desktop",
+      "glob": "sun/java2d/cmm/profiles/sRGB.pf"
+    },
+    {
       "bundle": "net.sourceforge.argparse4j.internal.ArgumentParserImpl"
+    },
+    {
+      "bundle": "sun.awt.resources.awt"
     }
   ]
 }

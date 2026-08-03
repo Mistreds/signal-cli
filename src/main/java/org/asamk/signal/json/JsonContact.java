@@ -1,9 +1,10 @@
 package org.asamk.signal.json;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import io.micronaut.jsonschema.JsonSchema;
 
 import java.util.List;
+
+import io.micronaut.jsonschema.JsonSchema;
 
 @JsonSchema(title = "Contact")
 public record JsonContact(

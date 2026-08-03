@@ -1,13 +1,14 @@
 package org.asamk.signal.json;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import io.micronaut.jsonschema.JsonSchema;
 
 import org.asamk.signal.manager.api.Color;
 import org.asamk.signal.manager.api.GroupId;
 import org.asamk.signal.manager.api.MessageEnvelope;
 
 import java.util.List;
+
+import io.micronaut.jsonschema.JsonSchema;
 
 @JsonSchema(title = "StoryMessage")
 record JsonStoryMessage(

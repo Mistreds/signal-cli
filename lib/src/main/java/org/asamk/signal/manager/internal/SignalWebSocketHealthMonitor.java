@@ -9,6 +9,7 @@ import org.whispersystems.signalservice.api.websocket.HealthMonitor;
 import org.whispersystems.signalservice.api.websocket.SignalWebSocket;
 import org.whispersystems.signalservice.api.websocket.WebSocketConnectionState;
 
+import java.time.Duration;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -101,6 +102,18 @@ final class SignalWebSocketHealthMonitor implements HealthMonitor {
             return;
         }
         logger.info("Received alerts: {}", String.join(", ", strings));
+    }
+
+    @Override
+    public void onServerTimestamp(final long serverTimestamp, final boolean isIdentifiedWebsocket) {
+        final var skew = skewFrom(serverTimestamp);
+        if (skew.compareTo(Duration.ofDays(1)) > 0) {
+            logger.warn("Local clock is off from the server by {}, which exceeds the allowed limit..", skew);
+        }
+    }
+
+    private Duration skewFrom(long serverTime) {
+        return Duration.ofMillis(Math.abs(System.currentTimeMillis() - serverTime));
     }
 
     /**

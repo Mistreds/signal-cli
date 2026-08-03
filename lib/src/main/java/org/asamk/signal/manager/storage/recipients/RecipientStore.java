@@ -54,14 +54,16 @@ public class RecipientStore implements RecipientIdCreator, RecipientResolver, Re
 
     private static final int MAX_RECIPIENT_CACHE_SIZE = 2000;
 
-    private final Map<ServiceId, RecipientWithAddress> recipientAddressCache = Collections.synchronizedMap(
-            new LinkedHashMap<>(16, 0.75f, true) {
+    private final Map<ServiceId, RecipientWithAddress> recipientAddressCache = Collections.synchronizedMap(new LinkedHashMap<>(
+            16,
+            0.75f,
+            true) {
 
-                @Override
-                protected boolean removeEldestEntry(Map.Entry<ServiceId, RecipientWithAddress> eldest) {
-                    return size() > MAX_RECIPIENT_CACHE_SIZE;
-                }
-            });
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<ServiceId, RecipientWithAddress> eldest) {
+            return size() > MAX_RECIPIENT_CACHE_SIZE;
+        }
+    });
 
     public static void createSql(Connection connection) throws SQLException {
         // When modifying the CREATE statement here, also add a migration in AccountDatabase.java
@@ -80,6 +82,7 @@ public class RecipientStore implements RecipientIdCreator, RecipientResolver, Re
                                       profile_key BLOB,
                                       profile_key_credential BLOB,
                                       needs_pni_signature INTEGER NOT NULL DEFAULT FALSE,
+                                      pni_signature_verified INTEGER NOT NULL DEFAULT FALSE,
                                     
                                       given_name TEXT,
                                       family_name TEXT,
@@ -372,6 +375,7 @@ public class RecipientStore implements RecipientIdCreator, RecipientResolver, Re
                 SELECT r._id,
                        r.number, r.aci, r.pni, r.username,
                        r.profile_key, r.profile_key_credential,
+                       r.pni_signature_verified,
                        r.given_name, r.family_name, r.nick_name, r.nick_name_given_name, r.nick_name_family_name, r.note, r.expiration_time, r.expiration_time_version, r.mute_until, r.hide_story, r.profile_sharing, r.color, r.blocked, r.archived, r.hidden, r.unregistered_timestamp,
                        r.profile_last_update_timestamp, r.profile_given_name, r.profile_family_name, r.profile_about, r.profile_about_emoji, r.profile_avatar_url_path, r.profile_mobile_coin_address, r.profile_unidentified_access_mode, r.profile_capabilities, r.profile_phone_number_sharing,
                        r.discoverable,
@@ -392,6 +396,7 @@ public class RecipientStore implements RecipientIdCreator, RecipientResolver, Re
                 SELECT r._id,
                        r.number, r.aci, r.pni, r.username,
                        r.profile_key, r.profile_key_credential,
+                       r.pni_signature_verified,
                        r.given_name, r.family_name, r.nick_name, r.nick_name_given_name, r.nick_name_family_name, r.note, r.expiration_time, r.expiration_time_version, r.mute_until, r.hide_story, r.profile_sharing, r.color, r.blocked, r.archived, r.hidden, r.unregistered_timestamp,
                        r.profile_last_update_timestamp, r.profile_given_name, r.profile_family_name, r.profile_about, r.profile_about_emoji, r.profile_avatar_url_path, r.profile_mobile_coin_address, r.profile_unidentified_access_mode, r.profile_capabilities, r.profile_phone_number_sharing,
                        r.discoverable,
@@ -441,6 +446,7 @@ public class RecipientStore implements RecipientIdCreator, RecipientResolver, Re
                 SELECT r._id,
                        r.number, r.aci, r.pni, r.username,
                        r.profile_key, r.profile_key_credential,
+                       r.pni_signature_verified,
                        r.given_name, r.family_name, r.nick_name, r.nick_name_given_name, r.nick_name_family_name, r.note, r.expiration_time, r.expiration_time_version, r.mute_until, r.hide_story, r.profile_sharing, r.color, r.blocked, r.archived, r.hidden, r.unregistered_timestamp,
                        r.profile_last_update_timestamp, r.profile_given_name, r.profile_family_name, r.profile_about, r.profile_about_emoji, r.profile_avatar_url_path, r.profile_mobile_coin_address, r.profile_unidentified_access_mode, r.profile_capabilities, r.profile_phone_number_sharing,
                        r.discoverable,
@@ -961,6 +967,69 @@ public class RecipientStore implements RecipientIdCreator, RecipientResolver, Re
         }
     }
 
+    public void markPniSignatureVerified(final RecipientId recipientId) {
+        logger.debug("Marking {} as pni signature verified", recipientId);
+        try (final var connection = database.getConnection()) {
+            connection.setAutoCommit(false);
+            if (storePniSignatureVerified(connection, recipientId, true)) {
+                rotateStorageId(connection, recipientId);
+            }
+            connection.commit();
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed update recipient store", e);
+        }
+    }
+
+    public boolean storePniSignatureVerified(
+            final Connection connection,
+            final RecipientId recipientId,
+            final boolean value
+    ) throws SQLException {
+        return storePniSignatureVerified(connection, recipientId, value, false);
+    }
+
+    private boolean storePniSignatureVerified(
+            final Connection connection,
+            final RecipientId recipientId,
+            final boolean value,
+            final boolean force
+    ) throws SQLException {
+        if (!force && isPniSignatureVerified(connection, recipientId) == value) {
+            return false;
+        }
+
+        final var sql = (
+                """
+                UPDATE %s
+                SET pni_signature_verified = ?
+                WHERE _id = ?
+                """
+        ).formatted(TABLE_RECIPIENT);
+        try (final var statement = connection.prepareStatement(sql)) {
+            statement.setBoolean(1, value);
+            statement.setLong(2, recipientId.id());
+            statement.executeUpdate();
+        }
+        return true;
+    }
+
+    private boolean isPniSignatureVerified(
+            final Connection connection,
+            final RecipientId recipientId
+    ) throws SQLException {
+        final var sql = (
+                """
+                SELECT pni_signature_verified
+                FROM %s
+                WHERE _id = ?
+                """
+        ).formatted(TABLE_RECIPIENT);
+        try (final var statement = connection.prepareStatement(sql)) {
+            statement.setLong(1, recipientId.id());
+            return Utils.executeQuerySingleRow(statement, resultSet -> resultSet.getBoolean("pni_signature_verified"));
+        }
+    }
+
     public boolean needsPniSignature(final RecipientId recipientId) {
         try (final var connection = database.getConnection()) {
             final var sql = (
@@ -1255,6 +1324,9 @@ public class RecipientStore implements RecipientIdCreator, RecipientResolver, Re
             final List<RecipientId> toBeMergedRecipientIds
     ) throws SQLException {
         for (final var toBeMergedRecipientId : toBeMergedRecipientIds) {
+            if (isPniSignatureVerified(connection, toBeMergedRecipientId)) {
+                storePniSignatureVerified(connection, recipientId, true, true);
+            }
             recipientMergeHandler.mergeRecipients(connection, recipientId, toBeMergedRecipientId);
             deleteRecipient(connection, toBeMergedRecipientId);
             recipientAddressCache.entrySet().removeIf(e -> e.getValue().id().equals(toBeMergedRecipientId));
@@ -1349,7 +1421,12 @@ public class RecipientStore implements RecipientIdCreator, RecipientResolver, Re
         final var sql = (
                 """
                 UPDATE %s
-                SET number = NULL, aci = NULL, pni = NULL, username = NULL, storage_id = NULL
+                SET number = NULL,
+                    aci = NULL,
+                    pni = NULL,
+                    username = NULL,
+                    storage_id = NULL,
+                    pni_signature_verified = FALSE
                 WHERE _id = ?
                 """
         ).formatted(TABLE_RECIPIENT);
@@ -1365,10 +1442,18 @@ public class RecipientStore implements RecipientIdCreator, RecipientResolver, Re
             final RecipientAddress address
     ) throws SQLException {
         recipientAddressCache.entrySet().removeIf(e -> e.getValue().id().equals(recipientId));
+        final var existingAddress = resolveRecipientAddress(connection, recipientId);
+        final var keepPniSignatureVerified = Objects.equals(existingAddress.aci(), address.aci()) && Objects.equals(
+                existingAddress.pni(),
+                address.pni());
         final var sql = (
                 """
                 UPDATE %s
-                SET number = ?, aci = ?, pni = ?, username = ?
+                SET number = ?,
+                    aci = ?,
+                    pni = ?,
+                    username = ?,
+                    pni_signature_verified = ?
                 WHERE _id = ?
                 """
         ).formatted(TABLE_RECIPIENT);
@@ -1377,7 +1462,8 @@ public class RecipientStore implements RecipientIdCreator, RecipientResolver, Re
             statement.setString(2, address.aci().map(ACI::toString).orElse(null));
             statement.setString(3, address.pni().map(PNI::toString).orElse(null));
             statement.setString(4, address.username().orElse(null));
-            statement.setLong(5, recipientId.id());
+            statement.setBoolean(5, keepPniSignatureVerified && isPniSignatureVerified(connection, recipientId));
+            statement.setLong(6, recipientId.id());
             statement.executeUpdate();
         }
         rotateStorageId(connection, recipientId);
@@ -1595,6 +1681,7 @@ public class RecipientStore implements RecipientIdCreator, RecipientResolver, Re
                 getProfileFromResultSet(resultSet),
                 getDiscoverableFromResultSet(resultSet),
                 getUnregisteredTimestampFromResultSet(resultSet),
+                resultSet.getBoolean("pni_signature_verified"),
                 getStorageRecordFromResultSet(resultSet));
     }
 

@@ -1,13 +1,14 @@
 package org.asamk.signal.json;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import io.micronaut.jsonschema.JsonSchema;
 
 import org.asamk.signal.manager.api.MessageEnvelope;
 
 import java.math.BigInteger;
 import java.util.Base64;
 import java.util.List;
+
+import io.micronaut.jsonschema.JsonSchema;
 
 import static org.asamk.signal.manager.util.Utils.callIdUnsigned;
 

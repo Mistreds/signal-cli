@@ -100,6 +100,7 @@ public class LegacyRecipientStore2 {
                         profile,
                         null,
                         null,
+                        false,
                         null);
             }).collect(Collectors.toMap(Recipient::getRecipientId, r -> r));
 

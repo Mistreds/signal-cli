@@ -355,6 +355,7 @@ public class SignalDependencies {
                 () -> preKeyRepository = new PreKeyRepository(getKeysApi(),
                         dataStore.aci(),
                         localProtocolAddress,
+                        getSessionLock(),
                         Runnable::run));
     }
 

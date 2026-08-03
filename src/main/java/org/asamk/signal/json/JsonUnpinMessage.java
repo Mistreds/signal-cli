@@ -1,10 +1,10 @@
 package org.asamk.signal.json;
 
-import io.micronaut.jsonschema.JsonSchema;
-
 import org.asamk.signal.manager.api.MessageEnvelope;
 
 import java.util.UUID;
+
+import io.micronaut.jsonschema.JsonSchema;
 
 @JsonSchema(title = "UnpinMessage")
 public record JsonUnpinMessage(

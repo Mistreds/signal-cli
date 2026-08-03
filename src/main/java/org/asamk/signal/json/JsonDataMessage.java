@@ -1,12 +1,13 @@
 package org.asamk.signal.json;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import io.micronaut.jsonschema.JsonSchema;
 
 import org.asamk.signal.manager.Manager;
 import org.asamk.signal.manager.api.MessageEnvelope;
 
 import java.util.List;
+
+import io.micronaut.jsonschema.JsonSchema;
 
 @JsonSchema(title = "DataMessage")
 record JsonDataMessage(

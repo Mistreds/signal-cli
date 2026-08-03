@@ -264,6 +264,9 @@ class GroupV2Helper {
         var pendingMembersList = groupInfoV2.getGroup().pendingMembers;
         final var selfAci = getSelfAci();
         var selfPendingMember = DecryptedGroupUtil.findPendingByServiceId(pendingMembersList, selfAci);
+        if (selfPendingMember.isEmpty()) {
+            selfPendingMember = DecryptedGroupUtil.findPendingByServiceId(pendingMembersList, getSelfPni());
+        }
 
         if (selfPendingMember.isPresent()) {
             return revokeInvites(groupInfoV2, Set.of(selfPendingMember.get()));

@@ -1,9 +1,9 @@
 package org.asamk.signal.json;
 
-import io.micronaut.jsonschema.JsonSchema;
-
 import org.asamk.signal.manager.Manager;
 import org.asamk.signal.manager.api.MessageEnvelope;
+
+import io.micronaut.jsonschema.JsonSchema;
 
 @JsonSchema(title = "GroupInfo")
 record JsonGroupInfo(String groupId, String groupName, int revision, String type) {

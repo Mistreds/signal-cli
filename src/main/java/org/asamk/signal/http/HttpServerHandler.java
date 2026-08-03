@@ -76,7 +76,8 @@ public class HttpServerHandler implements AutoCloseable {
         // If we're listening on any local address (0.0.0.0 or ::), skip Host header validation
         final var addr = address == null ? null : address.getAddress();
         if (addr != null && addr.isAnyLocalAddress()) {
-            logger.warn("HTTP server has no authentication; Host header validation DISABLED because listening on {}", address);
+            logger.warn("HTTP server has no authentication; Host header validation DISABLED because listening on {}",
+                    address);
         } else {
             logger.warn("HTTP server has no authentication; Host header is pinned to {}", allowedHosts);
         }
@@ -114,7 +115,8 @@ public class HttpServerHandler implements AutoCloseable {
     private void handleRpcEndpoint(HttpExchange httpExchange) throws IOException {
         if (!isHostAllowed(httpExchange)) {
             logger.warn("Rejected RPC request with invalid Host header: {} from {}",
-                    httpExchange.getRequestHeaders().getFirst("Host"), httpExchange.getRemoteAddress());
+                    httpExchange.getRequestHeaders().getFirst("Host"),
+                    httpExchange.getRemoteAddress());
             sendResponse(421, null, httpExchange);
             return;
         }
@@ -167,7 +169,8 @@ public class HttpServerHandler implements AutoCloseable {
     private void handleEventsEndpoint(HttpExchange httpExchange) throws IOException {
         if (!isHostAllowed(httpExchange)) {
             logger.warn("Rejected Events request with invalid Host header: {} from {}",
-                    httpExchange.getRequestHeaders().getFirst("Host"), httpExchange.getRemoteAddress());
+                    httpExchange.getRequestHeaders().getFirst("Host"),
+                    httpExchange.getRemoteAddress());
             sendResponse(421, null, httpExchange);
             return;
         }

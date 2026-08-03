@@ -1,8 +1,8 @@
 package org.asamk.signal.json;
 
-import io.micronaut.jsonschema.JsonSchema;
-
 import org.asamk.signal.manager.api.TextStyle;
+
+import io.micronaut.jsonschema.JsonSchema;
 
 @JsonSchema(title = "TextStyle")
 public record JsonTextStyle(String style, int start, int length) {

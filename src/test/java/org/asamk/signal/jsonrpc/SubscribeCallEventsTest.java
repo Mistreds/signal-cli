@@ -53,8 +53,7 @@ class SubscribeCallEventsTest {
         }
     }
 
-    private record ManagedManager(Manager manager, ManagerMock.State state) {
-    }
+    private record ManagedManager(Manager manager, ManagerMock.State state) {}
 
     private static ManagedManager createManager(final String selfNumber) {
         final var state = new ManagerMock.State();
@@ -172,7 +171,9 @@ class SubscribeCallEventsTest {
         handler.handleConnection(manager.manager());
 
         // The implementation allows multiple subscriptions, so two calls add two listeners
-        assertEquals(2, manager.state().addCallEventListenerCount.get(), "multiple subscribeCallEvents should add multiple listeners");
+        assertEquals(2,
+                manager.state().addCallEventListenerCount.get(),
+                "multiple subscribeCallEvents should add multiple listeners");
     }
 
     @Test
@@ -263,6 +264,8 @@ class SubscribeCallEventsTest {
         var handler = new SignalJsonRpcDispatcherHandler(writer, feeder::getLine, true);
         handler.handleConnection(multi);
 
-        assertEquals(0, manager1.state().addCallEventListenerCount.get(), "call events should not be auto-subscribed in multi mode");
+        assertEquals(0,
+                manager1.state().addCallEventListenerCount.get(),
+                "call events should not be auto-subscribed in multi mode");
     }
 }

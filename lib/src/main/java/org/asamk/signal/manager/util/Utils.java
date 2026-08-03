@@ -17,7 +17,6 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.math.BigInteger;
 import java.net.Proxy;
 import java.net.ProxySelector;
@@ -39,6 +38,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import kotlin.coroutines.Continuation;
+import kotlin.coroutines.EmptyCoroutineContext;
+import kotlinx.coroutines.BuildersKt;
 import okio.ByteString;
 
 public class Utils {
@@ -53,7 +55,7 @@ public class Utils {
     }
 
     public static StreamDetails createStreamDetailsFromFile(final File file) throws IOException {
-        final InputStream stream = new FileInputStream(file);
+        final var stream = new FileInputStream(file);
         final var size = file.length();
         final var mime = MimeUtils.getFileMimeType(file).orElse(MimeUtils.OCTET_STREAM);
         return new StreamDetails(stream, mime, size);
@@ -159,6 +161,24 @@ public class Utils {
 
     public static <T> T handleResponseException(final NetworkResult<T> response) throws IOException {
         return NetworkResultUtil.toBasicLegacy(response);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> T runSuspendBlocking(final Function<Continuation<? super T>, Object> call) {
+        try {
+            return (T) BuildersKt.runBlocking(EmptyCoroutineContext.INSTANCE,
+                    (scope, cont) -> call.apply((Continuation<? super T>) cont));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while waiting for suspend function", e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T, E extends BadRequestError> T handleResponseExceptionSuspend(
+            final Function<Continuation<? super RequestResult>, Object> call
+    ) throws IOException {
+        return handleResponseException((RequestResult<T, E>) runSuspendBlocking((Function) call));
     }
 
     @SuppressWarnings("unchecked")

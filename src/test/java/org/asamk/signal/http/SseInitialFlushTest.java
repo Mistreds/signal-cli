@@ -30,7 +30,9 @@ class SseInitialFlushTest {
     private HttpServerHandler handler;
     private int port;
 
-    /** Finds a free local port. */
+    /**
+     * Finds a free local port.
+     */
     private static int freePort() throws Exception {
         try (var ss = new ServerSocket(0)) {
             ss.setReuseAddress(true);

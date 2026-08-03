@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+## [0.14.7] - 2026-08-01
+
+### Added
+
+- Sync installed sticker packs via storage sync
+
+### Improved
+
+- Set width/height for outgoing image attachments (Thanks @mikesimone)
+- Update to new registration/provisioning API
+
+### Fixed
+
+- Removing self from pending group invite now works if invited via PNI
+- Correctly set needs PNI signature for recipients
+- Fix linking after previous unsuccessful link attempt
+
 ## [0.14.6] - 2026-07-12
 
 ### Added

@@ -33,9 +33,7 @@ public class SendStoryCommand implements JsonRpcLocalCommand {
         subparser.addArgument("-a", "--attachment")
                 .required(true)
                 .help("Specify the file path to the image or video to post as a story.");
-        subparser.addArgument("--no-replies")
-                .action(Arguments.storeTrue())
-                .help("Disable replies on this story.");
+        subparser.addArgument("--no-replies").action(Arguments.storeTrue()).help("Disable replies on this story.");
         subparser.addArgument("-g", "--group-id")
                 .help("Specify a group to post the story to. Without this, posts to My Story.");
     }

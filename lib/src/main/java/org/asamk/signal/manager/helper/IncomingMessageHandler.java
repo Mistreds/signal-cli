@@ -340,9 +340,9 @@ public final class IncomingMessageHandler {
         }
 
         if (account.getPni().equals(destination.serviceId)) {
-            account.getRecipientStore().markNeedsPniSignature(destination.recipientId, true);
+            account.getRecipientStore().markNeedsPniSignature(sender, true);
         } else if (account.getAci().equals(destination.serviceId)) {
-            account.getRecipientStore().markNeedsPniSignature(destination.recipientId, false);
+            account.getRecipientStore().markNeedsPniSignature(sender, false);
         }
 
         if (content.getReceiptMessage().isPresent()) {
@@ -498,10 +498,11 @@ public final class IncomingMessageHandler {
         }
 
         logger.debug("Verified association of ACI {} with PNI {}", aci, pni);
-        account.getRecipientTrustedResolver()
+        final var recipientId = account.getRecipientTrustedResolver()
                 .resolveRecipientTrusted(Optional.of(ACI.from(aci.getRawUuid())),
                         Optional.of(pni),
                         senderAddress.getNumber());
+        account.getRecipientStore().markPniSignatureVerified(recipientId);
         return true;
     }
 
@@ -717,11 +718,30 @@ public final class IncomingMessageHandler {
         }
         if (syncMessage.getPniChangeNumber().isPresent()) {
             final var pniChangeNumber = syncMessage.getPniChangeNumber().get();
-            logger.debug("Received PNI change number sync message, applying.");
-            final var updatedPniString = envelope.getUpdatedPni();
-            if (updatedPniString != null && !updatedPniString.isEmpty()) {
-                final var updatedPni = ServiceId.PNI.parseOrThrow(updatedPniString);
-                context.getAccountHelper().handlePniChangeNumberMessage(pniChangeNumber, updatedPni);
+            if (account.isPrimaryDevice()) {
+                logger.warn("Received PNI change number sync message on primary device, ignoring.");
+            } else if (sender.deviceId() != SignalServiceAddress.DEFAULT_DEVICE_ID) {
+                logger.warn("Received PNI change number sync message from non-primary device {}, ignoring.",
+                        sender.deviceId());
+            } else {
+                final var envelopeServerTimestamp = envelope.getServerDeliveredTimestamp();
+                final var lastAppliedServerTimestamp = account.getLastAppliedPniChangeServerTimestamp();
+                if (envelopeServerTimestamp <= lastAppliedServerTimestamp) {
+                    logger.warn(
+                            "PNI change number sync server timestamp ({}) is not newer than last applied ({}), treating as replay.",
+                            envelopeServerTimestamp,
+                            lastAppliedServerTimestamp);
+                } else {
+                    final var updatedPniString = envelope.getUpdatedPni();
+                    if (updatedPniString != null && !updatedPniString.isEmpty()) {
+                        final var updatedPni = ServiceId.PNI.parseOrThrow(updatedPniString);
+                        final var applied = context.getAccountHelper()
+                                .handlePniChangeNumberMessage(pniChangeNumber, updatedPni, true);
+                        if (applied) {
+                            account.setLastAppliedPniChangeServerTimestamp(envelopeServerTimestamp);
+                        }
+                    }
+                }
             }
         }
         if (syncMessage.getDeviceNameChange().isPresent()) {

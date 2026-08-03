@@ -30,6 +30,7 @@ dependencies {
     implementation(libs.slf4j.api)
     implementation(libs.sqlite)
     implementation(libs.hikari)
+    compileOnly(libs.kotlinx.coroutines.core)
 
     testImplementation(libs.junit.jupiter)
     testImplementation(platform(libs.junit.jupiter.bom))

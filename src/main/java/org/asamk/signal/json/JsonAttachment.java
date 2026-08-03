@@ -1,8 +1,8 @@
 package org.asamk.signal.json;
 
-import io.micronaut.jsonschema.JsonSchema;
-
 import org.asamk.signal.manager.api.MessageEnvelope;
+
+import io.micronaut.jsonschema.JsonSchema;
 
 @JsonSchema(title = "Attachment")
 record JsonAttachment(

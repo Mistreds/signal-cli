@@ -17,6 +17,7 @@ import org.asamk.signal.manager.util.Utils;
 import org.signal.core.models.ServiceId.ACI;
 import org.signal.core.models.ServiceId.PNI;
 import org.signal.core.util.Base64;
+import org.signal.core.util.crypto.DeviceNameCipher;
 import org.signal.libsignal.protocol.IdentityKeyPair;
 import org.signal.libsignal.protocol.InvalidKeyException;
 import org.signal.libsignal.protocol.NoSessionException;
@@ -32,6 +33,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.signalservice.api.account.ChangePhoneNumberRequest;
 import org.whispersystems.signalservice.api.crypto.UntrustedIdentityException;
 import org.whispersystems.signalservice.api.link.LinkedDeviceVerificationCodeResponse;
+import org.whispersystems.signalservice.api.messages.multidevice.DeviceInfo;
 import org.whispersystems.signalservice.api.push.ServiceIdType;
 import org.whispersystems.signalservice.api.push.SignalServiceAddress;
 import org.whispersystems.signalservice.api.push.SignedPreKeyEntity;
@@ -39,7 +41,6 @@ import org.whispersystems.signalservice.api.push.UsernameLinkComponents;
 import org.whispersystems.signalservice.api.push.exceptions.AlreadyVerifiedException;
 import org.whispersystems.signalservice.api.push.exceptions.AuthorizationFailedException;
 import org.whispersystems.signalservice.api.push.exceptions.DeprecatedVersionException;
-import org.whispersystems.signalservice.api.util.DeviceNameUtil;
 import org.whispersystems.signalservice.internal.push.DeviceLimitExceededException;
 import org.whispersystems.signalservice.internal.push.KyberPreKeyEntity;
 import org.whispersystems.signalservice.internal.push.OutgoingPushMessage;
@@ -47,6 +48,7 @@ import org.whispersystems.signalservice.internal.push.SyncMessage;
 import org.whispersystems.signalservice.internal.push.exceptions.MismatchedDevicesException;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -58,6 +60,7 @@ import okio.ByteString;
 
 import static org.asamk.signal.manager.config.ServiceConfig.PREKEY_MAXIMUM_ID;
 import static org.asamk.signal.manager.util.Utils.handleResponseException;
+import static org.asamk.signal.manager.util.Utils.handleResponseExceptionSuspend;
 import static org.whispersystems.signalservice.internal.util.Util.isEmpty;
 
 public class AccountHelper {
@@ -321,10 +324,14 @@ public class AccountHelper {
             return;
         }
 
-        handlePniChangeNumberMessage(selfChangeNumber, updatePni);
+        handlePniChangeNumberMessage(selfChangeNumber, updatePni, false);
     }
 
-    public void handlePniChangeNumberMessage(final SyncMessage.PniChangeNumber pniChangeNumber, final PNI updatedPni) {
+    public boolean handlePniChangeNumberMessage(
+            final SyncMessage.PniChangeNumber pniChangeNumber,
+            final PNI updatedPni,
+            final boolean forcePniPreKeyRotation
+    ) {
         if (pniChangeNumber.identityKeyPair != null
                 && pniChangeNumber.registrationId != null
                 && pniChangeNumber.signedPreKey != null) {
@@ -338,10 +345,19 @@ public class AccountHelper {
                         pniChangeNumber.lastResortKyberPreKey != null
                                 ? new KyberPreKeyRecord(pniChangeNumber.lastResortKyberPreKey.toByteArray())
                                 : null);
+                if (forcePniPreKeyRotation) {
+                    try {
+                        context.getPreKeyHelper().forceRefreshPreKeys(ServiceIdType.PNI);
+                    } catch (IOException e) {
+                        logger.warn("Failed to force refresh PNI pre keys after PNI change sync", e);
+                    }
+                }
+                return true;
             } catch (Exception e) {
                 logger.warn("Failed to handle change number message", e);
             }
         }
+        return false;
     }
 
     public static final int USERNAME_MIN_LENGTH = 3;
@@ -508,28 +524,34 @@ public class AccountHelper {
         }
     }
 
+    @SuppressWarnings("unchecked")
     public void deleteUsername() throws IOException {
-        handleResponseException(dependencies.getAccountApi().deleteUsername());
+        handleResponseException(dependencies.getAccountApi().deleteUsernameHash());
         account.setUsernameLink(null);
         account.setUsername(null);
         logger.debug("[deleteUsername] Successfully deleted the username.");
     }
 
     public void setDeviceName(String deviceName) {
-        final var privateKey = account.getAciIdentityKeyPair().getPrivateKey();
-        final var encryptedDeviceName = DeviceNameUtil.encryptDeviceName(deviceName, privateKey);
+        final var encryptedDeviceName = getEncryptedDeviceName(deviceName);
         account.setEncryptedDeviceName(encryptedDeviceName);
     }
 
     public void setDeviceName(int deviceId, String deviceName) throws IOException {
-        final var privateKey = account.getAciIdentityKeyPair().getPrivateKey();
-        final var encryptedDeviceName = DeviceNameUtil.encryptDeviceName(deviceName, privateKey);
+        final var encryptedDeviceName = getEncryptedDeviceName(deviceName);
         handleResponseException(dependencies.getLinkDeviceApi().setDeviceName(encryptedDeviceName, deviceId));
         context.getSyncHelper().sendDeviceNameChange(deviceId);
     }
 
+    private String getEncryptedDeviceName(final String deviceName) {
+        final var identityKey = account.getAciIdentityKeyPair();
+        return Base64.encodeWithoutPadding(DeviceNameCipher.encryptDeviceName(deviceName.getBytes(StandardCharsets.UTF_8),
+                identityKey));
+    }
+
     public void refreshDeviceName() throws IOException {
-        final var devices = handleResponseException(dependencies.getLinkDeviceApi().getDevices());
+        final List<DeviceInfo> devices = handleResponseExceptionSuspend(cont -> dependencies.getLinkDeviceApi()
+                .getDevices(cont));
         final var deviceId = account.getDeviceId();
         final var device = devices.stream().filter(d -> d.id == deviceId).findFirst();
         if (device.isPresent()) {
@@ -569,8 +591,9 @@ public class AccountHelper {
     }
 
     public void removeLinkedDevices(int deviceId) throws IOException {
-        handleResponseException(dependencies.getLinkDeviceApi().removeDevice(deviceId));
-        var devices = handleResponseException(dependencies.getLinkDeviceApi().getDevices());
+        handleResponseExceptionSuspend(cont -> dependencies.getLinkDeviceApi().removeDevice(deviceId, cont));
+        final List<DeviceInfo> devices = handleResponseExceptionSuspend(cont -> dependencies.getLinkDeviceApi()
+                .getDevices(cont));
         account.setMultiDevice(devices.size() > 1);
     }
 
@@ -605,7 +628,7 @@ public class AccountHelper {
         // When setting an empty GCM id, the Signal-Server also sets the fetchesMessages property to false.
         // If this is the primary device, other users can't send messages to this number anymore.
         // If this is a linked device, other users can still send messages, but this device doesn't receive them anymore.
-        handleResponseException(dependencies.getAccountApi().clearFcmToken());
+        handleResponseExceptionSuspend(cont -> dependencies.getAccountApi().clearFcmToken(cont));
 
         account.setRegistered(false);
         unregisteredListener.call();

@@ -213,6 +213,7 @@ run_main -a "$NUMBER_2" send "$NUMBER_1" -m hi
 run_main -a "$NUMBER_2" send "$NUMBER_1" -m hii
 run_main -a "$NUMBER_1" updateAccount --discoverable-by-number=false
 run_main -a "$NUMBER_1" receive
+run_main -a "$NUMBER_1" send "$NUMBER_2" -m hi
 run_main -a "$NUMBER_2" receive
 run_main -a "$NUMBER_2" send "$NUMBER_1" -m hi
 run_main -a "$NUMBER_2" send "$NUMBER_1" -m hii

@@ -1,11 +1,11 @@
 package org.asamk.signal.json;
 
-import io.micronaut.jsonschema.JsonSchema;
-
 import org.asamk.signal.manager.api.MessageEnvelope;
 
 import java.util.List;
 import java.util.UUID;
+
+import io.micronaut.jsonschema.JsonSchema;
 
 @JsonSchema(title = "PollVote")
 public record JsonPollVote(

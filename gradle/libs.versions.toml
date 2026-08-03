@@ -1,13 +1,14 @@
 [versions]
 slf4j = "2.0.18"
-junit = "6.1.0"
-micronaut-json-schema = "2.0.1"
-micronaut-core = "5.0.0"
-signal-service = "2.15.3_unofficial_149"
+coroutines = "1.10.2"
+junit = "6.1.2"
+micronaut-json-schema = "2.1.0"
+micronaut-core = "5.1.10"
+signal-service = "2.15.3_unofficial_151"
 
 [libraries]
-bouncycastle = "org.bouncycastle:bcprov-jdk18on:1.84"
-jackson-databind = "com.fasterxml.jackson.core:jackson-databind:2.21.5"
+bouncycastle = "org.bouncycastle:bcprov-jdk18on:1.85"
+jackson-databind = "com.fasterxml.jackson.core:jackson-databind:2.22.1"
 argparse4j = "net.sourceforge.argparse4j:argparse4j:0.9.0"
 dbusjava = "com.github.hypfvieh:dbus-java-transport-native-unixsocket:5.0.0"
 zxing = "com.google.zxing:core:3.5.4"
@@ -17,11 +18,12 @@ micronaut-json-schema-generator = { module = "io.micronaut.jsonschema:micronaut-
 micronaut-inject-java = { module = "io.micronaut:micronaut-inject-java", version.ref = "micronaut-core" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 slf4j-jul = { module = "org.slf4j:jul-to-slf4j", version.ref = "slf4j" }
-logback = "ch.qos.logback:logback-classic:1.5.32"
+logback = "ch.qos.logback:logback-classic:1.6.1"
 
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 signalnetwork = { module = "com.github.turasa:signal-network", version.ref = "signal-service" }
-sqlite = "org.xerial:sqlite-jdbc:3.53.1.0"
-hikari = "com.zaxxer:HikariCP:7.0.2"
+sqlite = "org.xerial:sqlite-jdbc:3.53.2.1"
+hikari = "com.zaxxer:HikariCP:7.1.0"
 junit-jupiter-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
 junit-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit" }
