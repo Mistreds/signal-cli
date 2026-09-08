@@ -611,6 +611,11 @@ public class ManagerImpl implements Manager {
     }
 
     @Override
+    public SendGroupMessageResults terminateGroup(GroupId groupId) throws IOException, GroupNotFoundException, NotAGroupMemberException {
+        return context.getGroupHelper().terminateGroup(groupId);
+    }
+
+    @Override
     public Pair<GroupId, SendGroupMessageResults> createGroup(
             String name,
             Set<RecipientIdentifier.Single> members,
@@ -911,6 +916,10 @@ public class ManagerImpl implements Manager {
         }
         if (!(groupInfo instanceof GroupInfoV2 groupInfoV2)) {
             throw new IOException("Stories are only supported for V2 groups");
+        }
+        if (groupInfoV2.isTerminated()) {
+            // Other clients drop messages sent to a terminated group.
+            throw new IOException("Cannot send a story to a group that has been terminated");
         }
 
         final var uploadedAttachment = context.getAttachmentHelper().uploadAttachment(attachment);

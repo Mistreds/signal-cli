@@ -328,6 +328,21 @@ public class DbusManagerImpl implements Manager {
     }
 
     @Override
+    public SendGroupMessageResults terminateGroup(
+            final GroupId groupId
+    ) throws IOException, GroupNotFoundException, NotAGroupMemberException {
+        final var group = getRemoteObject(signal.getGroup(groupId.serialize()), Signal.Group.class);
+        try {
+            group.terminateGroup();
+        } catch (Signal.Error.GroupNotFound e) {
+            throw new GroupNotFoundException(groupId);
+        } catch (Signal.Error.NotAGroupMember e) {
+            throw new NotAGroupMemberException(groupId, group.Get("org.asamk.Signal.Group", "Name"));
+        }
+        return new SendGroupMessageResults(0, List.of());
+    }
+
+    @Override
     public Pair<GroupId, SendGroupMessageResults> createGroup(
             final String name,
             final Set<RecipientIdentifier.Single> members,
@@ -824,6 +839,7 @@ public class DbusManagerImpl implements Manager {
                             0,
                             false,
                             contactBlocked,
+                            0,
                             false,
                             false,
                             false,
@@ -871,7 +887,8 @@ public class DbusManagerImpl implements Manager {
                     GroupPermission.valueOf((String) group.get("PermissionEditDetails").getValue()),
                     GroupPermission.valueOf((String) group.get("PermissionSendMessage").getValue()),
                     (boolean) group.get("IsMember").getValue(),
-                    (boolean) group.get("IsAdmin").getValue());
+                    (boolean) group.get("IsAdmin").getValue(),
+                    group.get("IsTerminated") != null && (boolean) group.get("IsTerminated").getValue());
         } catch (GroupInviteLinkUrl.InvalidGroupLinkException | GroupInviteLinkUrl.UnknownGroupLinkVersionException e) {
             throw new AssertionError(e);
         }

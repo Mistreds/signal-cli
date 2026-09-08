@@ -58,6 +58,10 @@ public sealed abstract class GroupInfo permits GroupInfoV1, GroupInfoV2 {
 
     public abstract void setBlocked(boolean blocked);
 
+    public abstract long getBlockedAt();
+
+    public abstract void setBlockedAt(long blockedAt);
+
     public abstract boolean isProfileSharingEnabled();
 
     public abstract void setProfileSharingEnabled(boolean profileSharingEnabled);
@@ -65,6 +69,8 @@ public sealed abstract class GroupInfo permits GroupInfoV1, GroupInfoV2 {
     public abstract int getMessageExpirationTimer();
 
     public abstract boolean isAnnouncementGroup();
+
+    public abstract boolean isTerminated();
 
     public abstract GroupPermission getPermissionAddMember();
 

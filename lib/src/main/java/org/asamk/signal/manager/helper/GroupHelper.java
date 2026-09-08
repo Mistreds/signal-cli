@@ -363,6 +363,28 @@ public class GroupHelper {
         return results;
     }
 
+    public SendGroupMessageResults terminateGroup(final GroupId groupId) throws IOException, GroupNotFoundException, NotAGroupMemberException {
+        final var group = getGroupForUpdating(groupId);
+        if (!(group instanceof GroupInfoV2)) {
+            throw new IOException("Terminating a group is only supported for Signal group v2 groups.");
+        }
+
+        SendGroupMessageResults results;
+        try {
+            results = terminateGroupV2((GroupInfoV2) group);
+        } catch (ConflictException e) {
+            // Detected conflicting update, refreshing group and trying again
+            results = terminateGroupV2((GroupInfoV2) getGroup(groupId, true));
+        }
+        context.getJobExecutor().enqueueJob(new SyncStorageJob());
+        return results;
+    }
+
+    private SendGroupMessageResults terminateGroupV2(final GroupInfoV2 group) throws IOException {
+        final var groupGroupChangePair = context.getGroupV2Helper().terminateGroup(group);
+        return sendUpdateGroupV2Message(group, groupGroupChangePair.first(), groupGroupChangePair.second());
+    }
+
     public void updateGroupProfileKey(GroupIdV2 groupId) throws GroupNotFoundException, NotAGroupMemberException, IOException {
         var group = getGroupForUpdating(groupId);
 
@@ -437,12 +459,21 @@ public class GroupHelper {
     }
 
     public void setGroupBlocked(final GroupId groupId, final boolean blocked) throws GroupNotFoundException {
+        setGroupBlocked(groupId, blocked, blocked ? System.currentTimeMillis() : 0);
+    }
+
+    public void setGroupBlocked(
+            final GroupId groupId,
+            final boolean blocked,
+            final long blockedAt
+    ) throws GroupNotFoundException {
         var group = getGroup(groupId);
         if (group == null) {
             throw new GroupNotFoundException(groupId);
         }
 
         group.setBlocked(blocked);
+        group.setBlockedAt(blocked ? blockedAt : 0);
         account.getGroupStore().updateGroup(group);
         context.getJobExecutor().enqueueJob(new SyncStorageJob());
     }

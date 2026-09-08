@@ -1308,6 +1308,7 @@ public class DbusSignalImpl implements Signal, AutoCloseable {
                             new DbusProperty<>("IsBlocked", () -> getGroup().isBlocked(), this::setIsBlocked),
                             new DbusProperty<>("IsMember", () -> getGroup().isMember()),
                             new DbusProperty<>("IsAdmin", () -> getGroup().isAdmin()),
+                            new DbusProperty<>("IsTerminated", () -> getGroup().isTerminated()),
                             new DbusProperty<>("MessageExpirationTimer",
                                     () -> getGroup().messageExpirationTimer(),
                                     this::setMessageExpirationTime),
@@ -1373,6 +1374,19 @@ public class DbusSignalImpl implements Signal, AutoCloseable {
                 throw new Error.Failure(e.getMessage());
             }
             updateGroups();
+        }
+
+        @Override
+        public void terminateGroup() throws Error.Failure {
+            try {
+                m.terminateGroup(groupId);
+            } catch (GroupNotFoundException e) {
+                throw new Error.GroupNotFound(e.getMessage());
+            } catch (NotAGroupMemberException e) {
+                throw new Error.NotAGroupMember(e.getMessage());
+            } catch (IOException e) {
+                throw new Error.Failure(e.getMessage());
+            }
         }
 
         @Override

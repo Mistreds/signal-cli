@@ -79,7 +79,7 @@ public class AttachmentUtils {
                     height = image.getHeight();
                 }
                 fis.getChannel().position(0);
-            } catch (IOException e) {
+            } catch (IOException | LinkageError e) {
                 logger.debug("Failed to probe image dimensions, sending without width/height: {}", e.getMessage());
                 fis.getChannel().position(0);
             }
@@ -93,7 +93,7 @@ public class AttachmentUtils {
                 width = image.getWidth();
                 height = image.getHeight();
             }
-        } catch (IOException e) {
+        } catch (IOException | LinkageError e) {
             logger.debug("Failed to probe image dimensions, sending without width/height: {}", e.getMessage());
         }
         return new ProbedStream(new ByteArrayInputStream(bytes), width, height);
