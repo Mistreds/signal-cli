@@ -800,6 +800,7 @@ Specify the group ID in base64 encoding.
 
 Show a list of known groups and related information.
 In json mode this is outputted as an list of objects and is always in detailed mode.
+JSON members include the locally known contact or profile `name` when available.
 
 *-d*, *--detailed*::
 Include the list of members of each group and the group invite link.

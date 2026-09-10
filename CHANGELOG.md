@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Include contact/profile names for group members in `listGroups` JSON output
+
 ## [0.14.7] - 2026-08-01
 
 ### Added

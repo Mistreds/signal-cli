@@ -2616,16 +2616,9 @@
     },
     {
       "type": "org.asamk.signal.commands.ListGroupsCommand$JsonGroupMemberAddress",
-      "methods": [
-        {
-          "name": "number",
-          "parameterTypes": []
-        },
-        {
-          "name": "uuid",
-          "parameterTypes": []
-        }
-      ]
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
     },
     {
       "type": "org.asamk.signal.commands.ListIdentitiesCommand$JsonIdentity",

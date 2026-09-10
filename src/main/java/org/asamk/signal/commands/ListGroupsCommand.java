@@ -11,6 +11,7 @@ import org.asamk.signal.manager.Manager;
 import org.asamk.signal.manager.api.Group;
 import org.asamk.signal.manager.api.GroupMember;
 import org.asamk.signal.manager.api.RecipientAddress;
+import org.asamk.signal.manager.api.RecipientIdentifier;
 import org.asamk.signal.output.JsonWriter;
 import org.asamk.signal.output.OutputWriter;
 import org.asamk.signal.output.PlainTextWriter;
@@ -56,18 +57,25 @@ public class ListGroupsCommand implements JsonRpcLocalCommand {
         return addresses.stream().map(RecipientAddress::getLegacyIdentifier).collect(Collectors.toSet());
     }
 
-    private static Set<JsonGroupMemberAddress> resolveJsonMembers(Set<RecipientAddress> addresses) {
+    private static String resolveName(Manager m, RecipientAddress address) {
+        final var name = m.getContactOrProfileName(RecipientIdentifier.Single.fromAddress(address));
+        return name == null || name.isEmpty() ? null : name;
+    }
+
+    private static Set<JsonGroupMemberAddress> resolveJsonMembers(Manager m, Set<RecipientAddress> addresses) {
         return addresses.stream()
                 .map(address -> new JsonGroupMemberAddress(address.number().orElse(null),
-                        address.uuid().map(UUID::toString).orElse(null)))
+                        address.uuid().map(UUID::toString).orElse(null),
+                        resolveName(m, address)))
                 .collect(Collectors.toSet());
     }
 
-    private static Set<JsonGroupMember> resolveFullJsonMembers(Set<GroupMember> addresses) {
+    private static Set<JsonGroupMember> resolveFullJsonMembers(Manager m, Set<GroupMember> addresses) {
         return addresses.stream().map(member -> {
             final var address = member.recipientAddress();
             return new JsonGroupMember(address.number().orElse(null),
                     address.uuid().map(UUID::toString).orElse(null),
+                    resolveName(m, address),
                     member.isAdmin(),
                     member.labelEmoji(),
                     member.label());
@@ -123,15 +131,16 @@ public class ListGroupsCommand implements JsonRpcLocalCommand {
                             group.isMember(),
                             group.isBlocked(),
                             group.messageExpirationTimer(),
-                            resolveFullJsonMembers(group.members()),
-                            resolveJsonMembers(group.pendingMembers()),
-                            resolveJsonMembers(group.requestingMembers()),
-                            resolveJsonMembers(group.members()
-                                    .stream()
-                                    .filter(GroupMember::isAdmin)
-                                    .map(GroupMember::recipientAddress)
-                                    .collect(Collectors.toSet())),
-                            resolveJsonMembers(group.bannedMembers()),
+                            resolveFullJsonMembers(m, group.members()),
+                            resolveJsonMembers(m, group.pendingMembers()),
+                            resolveJsonMembers(m, group.requestingMembers()),
+                            resolveJsonMembers(m,
+                                    group.members()
+                                            .stream()
+                                            .filter(GroupMember::isAdmin)
+                                            .map(GroupMember::recipientAddress)
+                                            .collect(Collectors.toSet())),
+                            resolveJsonMembers(m, group.bannedMembers()),
                             group.permissionAddMember().name(),
                             group.permissionEditDetails().name(),
                             group.permissionSendMessage().name(),
@@ -168,11 +177,14 @@ public class ListGroupsCommand implements JsonRpcLocalCommand {
             boolean isTerminated
     ) {}
 
-    private record JsonGroupMemberAddress(String number, String uuid) {}
+    private record JsonGroupMemberAddress(
+            String number, String uuid, @JsonInclude(JsonInclude.Include.NON_NULL) String name
+    ) {}
 
     private record JsonGroupMember(
             String number,
             String uuid,
+            @JsonInclude(JsonInclude.Include.NON_NULL) String name,
             boolean isAdmin,
             @JsonInclude(JsonInclude.Include.NON_NULL) String labelEmoji,
             @JsonInclude(JsonInclude.Include.NON_NULL) String label
