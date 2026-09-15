@@ -3233,6 +3233,9 @@
       "allDeclaredConstructors": true
     },
     {
+      "type": "org.asamk.signal.json.JsonGroupCallUpdate"
+    },
+    {
       "type": "org.asamk.signal.json.JsonGroupInfo",
       "allDeclaredFields": true,
       "allDeclaredMethods": true,
@@ -6184,6 +6187,22 @@
       ]
     },
     {
+      "type": "org.signal.libsignal.internal.LinkedDeviceInternal_ReturnConverter",
+      "jniAccessible": true,
+      "methods": [
+        {
+          "name": "fromNative",
+          "parameterTypes": [
+            "java.lang.Object",
+            "java.lang.Object",
+            "java.lang.Object",
+            "java.lang.Object",
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
       "type": "org.signal.libsignal.internal.NativeHandleGuard$SimpleOwner",
       "jniAccessible": true,
       "fields": [
@@ -6224,6 +6243,18 @@
             "byte[]",
             "byte[]"
           ]
+        }
+      ]
+    },
+    {
+      "type": "org.signal.libsignal.net.ChallengeOption",
+      "jniAccessible": true,
+      "fields": [
+        {
+          "name": "CAPTCHA"
+        },
+        {
+          "name": "PUSH_CHALLENGE"
         }
       ]
     },
@@ -6351,7 +6382,74 @@
       ]
     },
     {
+      "type": "org.signal.libsignal.net.DeviceIdNotFoundException",
+      "jniAccessible": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "org.signal.libsignal.net.MismatchedDeviceException",
+      "jniAccessible": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.lang.String",
+            "org.signal.libsignal.net.MismatchedDeviceException$Entry[]"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "org.signal.libsignal.net.MismatchedDeviceException$Entry",
+      "jniAccessible": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "byte[]",
+            "int[]",
+            "int[]",
+            "int[]"
+          ]
+        }
+      ]
+    },
+    {
       "type": "org.signal.libsignal.net.NetworkException",
+      "jniAccessible": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "org.signal.libsignal.net.RateLimitChallengeException",
+      "jniAccessible": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.lang.String",
+            "java.lang.String",
+            "org.signal.libsignal.net.ChallengeOption[]",
+            "long"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "org.signal.libsignal.net.RequestUnauthorizedException",
       "jniAccessible": true,
       "methods": [
         {
@@ -6375,7 +6473,55 @@
       ]
     },
     {
+      "type": "org.signal.libsignal.net.ServerSideErrorException",
+      "jniAccessible": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "org.signal.libsignal.net.ServiceIdNotFoundException",
+      "jniAccessible": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "org.signal.libsignal.net.TimeoutException",
+      "jniAccessible": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        }
+      ]
+    },
+    {
       "type": "org.signal.libsignal.net.TransportFailureException",
+      "jniAccessible": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "org.signal.libsignal.net.UnexpectedResponseException",
       "jniAccessible": true,
       "methods": [
         {
@@ -6396,6 +6542,18 @@
             "int",
             "java.lang.String",
             "java.lang.Object[]",
+            "java.lang.String"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "org.signal.libsignal.net.UploadTooLargeException",
+      "jniAccessible": true,
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
             "java.lang.String"
           ]
         }
@@ -6483,6 +6641,13 @@
         {
           "name": "<init>",
           "parameterTypes": [
+            "java.lang.String"
+          ]
+        },
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "org.signal.libsignal.protocol.SignalProtocolAddress",
             "java.lang.String"
           ]
         }
@@ -9773,6 +9938,9 @@
       ]
     },
     {
+      "type": "org.whispersystems.signalservice.internal.storage.protos.AccountRecord$UnreadBadgeType"
+    },
+    {
       "type": "org.whispersystems.signalservice.internal.storage.protos.AccountRecord$UsernameLink",
       "allDeclaredFields": true
     },
@@ -10960,6 +11128,12 @@
     },
     {
       "glob": "net/sourceforge/argparse4j/internal/ArgumentParserImpl_*.properties"
+    },
+    {
+      "glob": "net/sourceforge/argparse4j/internal/ArgumentParserImpl_de.properties"
+    },
+    {
+      "glob": "net/sourceforge/argparse4j/internal/ArgumentParserImpl_de_DE.properties"
     },
     {
       "glob": "net/sourceforge/argparse4j/internal/ArgumentParserImpl_en.properties"
