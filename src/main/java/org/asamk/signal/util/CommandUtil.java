@@ -140,6 +140,8 @@ public class CommandUtil {
         String message = "Rate limit reached";
         final var retryAfterMilliseconds = e.getRetryAfterMilliseconds();
         if (retryAfterMilliseconds != null) {
+            final var retryAfterSeconds = Math.ceilDiv(retryAfterMilliseconds, 1000L);
+            message += "\nRetry after: " + retryAfterSeconds + " seconds";
             message += "\nNext attempt may be tried at " + DateUtils.formatTimestamp(System.currentTimeMillis()
                     + retryAfterMilliseconds);
         }

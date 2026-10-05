@@ -10,11 +10,14 @@ import org.asamk.signal.manager.api.RateLimitException;
 import org.asamk.signal.manager.api.VerificationMethodNotAvailableException;
 import org.asamk.signal.manager.helper.PinHelper;
 import org.signal.core.models.MasterKey;
+import org.signal.network.NetworkResult;
 import org.signal.network.exceptions.NonSuccessfulResponseCodeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.signalservice.api.push.exceptions.ChallengeRequiredException;
 import org.whispersystems.signalservice.api.push.exceptions.NoSuchSessionException;
+import org.whispersystems.signalservice.api.push.exceptions.RequestVerificationCodeRateLimitException;
+import org.whispersystems.signalservice.api.push.exceptions.SubmitVerificationCodeRateLimitException;
 import org.whispersystems.signalservice.api.push.exceptions.TokenNotAcceptedException;
 import org.whispersystems.signalservice.api.registration.RegistrationApi;
 import org.whispersystems.signalservice.internal.push.LockedException;
@@ -23,6 +26,7 @@ import org.whispersystems.signalservice.internal.push.RegistrationSessionMetadat
 import org.whispersystems.signalservice.internal.push.VerifyAccountResponse;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.util.Locale;
 import java.util.function.Consumer;
 
@@ -39,10 +43,10 @@ public class NumberVerificationUtils {
     ) throws CaptchaRequiredException, IOException, RateLimitException, VerificationMethodNotAvailableException {
         RegistrationSessionMetadataResponse sessionResponse;
         try {
-            sessionResponse = getValidSession(registrationApi, sessionId);
+            sessionResponse = getValidSession(registrationApi, sessionId, voiceVerification);
         } catch (ChallengeRequiredException e) {
             if (captcha != null) {
-                sessionResponse = submitCaptcha(registrationApi, sessionId, captcha);
+                sessionResponse = submitCaptcha(registrationApi, sessionId, captcha, voiceVerification);
             } else {
                 throw new CaptchaRequiredException("Captcha Required");
             }
@@ -75,7 +79,7 @@ public class NumberVerificationUtils {
 
         if (sessionResponse.getMetadata().getRequestedInformation().contains("captcha")) {
             if (captcha != null) {
-                sessionResponse = submitCaptcha(registrationApi, sessionId, captcha);
+                sessionResponse = submitCaptcha(registrationApi, sessionId, captcha, voiceVerification);
             }
             if (!sessionResponse.getMetadata().getAllowedToRequestCode()) {
                 throw new CaptchaRequiredException("Captcha Required");
@@ -89,14 +93,14 @@ public class NumberVerificationUtils {
             RegistrationApi registrationApi,
             String sessionId,
             boolean voiceVerification
-    ) throws IOException, CaptchaRequiredException, NonNormalizedPhoneNumberException {
+    ) throws IOException, CaptchaRequiredException, NonNormalizedPhoneNumberException, RateLimitException {
         final var locale = Utils.getDefaultLocale(Locale.US);
         final var response = registrationApi.requestSmsVerificationCode(sessionId,
                 locale,
                 false,
                 voiceVerification ? VerificationCodeTransport.VOICE : VerificationCodeTransport.SMS);
         try {
-            Utils.handleResponseException(response);
+            unwrapRegistrationResponse(response, voiceVerification);
         } catch (ChallengeRequiredException e) {
             throw new CaptchaRequiredException(e.getMessage(), e);
         } catch (org.whispersystems.signalservice.api.push.exceptions.NonNormalizedPhoneNumberException e) {
@@ -143,40 +147,44 @@ public class NumberVerificationUtils {
 
     private static RegistrationSessionMetadataResponse validateSession(
             final RegistrationApi registrationApi,
-            final String sessionId
-    ) throws IOException {
+            final String sessionId,
+            final boolean voiceVerification
+    ) throws IOException, RateLimitException {
         if (sessionId == null || sessionId.isEmpty()) {
             throw new NoSuchSessionException();
         }
-        return Utils.handleResponseException(registrationApi.getRegistrationSessionStatus(sessionId));
+        return unwrapRegistrationResponse(registrationApi.getRegistrationSessionStatus(sessionId), voiceVerification);
     }
 
     private static RegistrationSessionMetadataResponse requestValidSession(
-            final RegistrationApi registrationApi
-    ) throws IOException {
-        return Utils.handleResponseException(registrationApi.createRegistrationSession(null, "", ""));
+            final RegistrationApi registrationApi,
+            final boolean voiceVerification
+    ) throws IOException, RateLimitException {
+        return unwrapRegistrationResponse(registrationApi.createRegistrationSession(null, "", ""), voiceVerification);
     }
 
     private static RegistrationSessionMetadataResponse getValidSession(
             final RegistrationApi registrationApi,
-            final String sessionId
-    ) throws IOException {
+            final String sessionId,
+            final boolean voiceVerification
+    ) throws IOException, RateLimitException {
         try {
-            return validateSession(registrationApi, sessionId);
+            return validateSession(registrationApi, sessionId, voiceVerification);
         } catch (NoSuchSessionException e) {
             logger.debug("No registration session, creating new one.");
-            return requestValidSession(registrationApi);
+            return requestValidSession(registrationApi, voiceVerification);
         }
     }
 
     private static RegistrationSessionMetadataResponse submitCaptcha(
             RegistrationApi registrationApi,
             String sessionId,
-            String captcha
-    ) throws IOException, CaptchaRequiredException {
+            String captcha,
+            boolean voiceVerification
+    ) throws IOException, CaptchaRequiredException, RateLimitException {
         captcha = captcha == null ? null : captcha.replace("signalcaptcha://", "");
         try {
-            return Utils.handleResponseException(registrationApi.submitCaptchaToken(sessionId, captcha));
+            return unwrapRegistrationResponse(registrationApi.submitCaptchaToken(sessionId, captcha), voiceVerification);
         } catch (ChallengeRequiredException | TokenNotAcceptedException _e) {
             throw new CaptchaRequiredException("Captcha not accepted");
         } catch (NonSuccessfulResponseCodeException e) {
@@ -185,6 +193,116 @@ public class NumberVerificationUtils {
             }
             throw e;
         }
+    }
+
+    private static <T> T unwrapRegistrationResponse(
+            final NetworkResult<T> result,
+            final boolean voiceVerification
+    ) throws IOException, RateLimitException {
+        if (result instanceof NetworkResult.StatusCodeError<?> error && isRegistrationRateLimit(error.getCode())) {
+            throw new RateLimitException(registrationRetryAfterMilliseconds(error.getException(), voiceVerification));
+        }
+        try {
+            return Utils.handleResponseException(result);
+        } catch (org.whispersystems.signalservice.api.push.exceptions.RateLimitException e) {
+            throw RateLimitException.from(e);
+        }
+    }
+
+    static Long registrationRetryAfterMilliseconds(
+            final NonSuccessfulResponseCodeException exception,
+            final boolean voiceVerification
+    ) {
+        final var sessionRetryAfter = switch (exception) {
+            case RequestVerificationCodeRateLimitException rateLimit ->
+                    retryAfterFromSession(rateLimit.getSessionMetadata(), voiceVerification);
+            case SubmitVerificationCodeRateLimitException rateLimit ->
+                    retryAfterFromSession(rateLimit.getSessionMetadata(), voiceVerification);
+            default -> null;
+        };
+        if (sessionRetryAfter != null) {
+            return sessionRetryAfter;
+        }
+        if (exception instanceof org.whispersystems.signalservice.api.push.exceptions.RateLimitException rateLimit) {
+            return rateLimit.getRetryAfterMilliseconds().orElse(null);
+        }
+        return null;
+    }
+
+    private static Long retryAfterFromSession(
+            final RegistrationSessionMetadataResponse session,
+            final boolean voiceVerification
+    ) {
+        final var retryAfterMilliseconds = retryAfterHeaderMilliseconds(session);
+        if (retryAfterMilliseconds != null) {
+            return retryAfterMilliseconds;
+        }
+        final var nextAttempt = voiceVerification
+                ? session.getMetadata().getNextCall()
+                : session.getMetadata().getNextSms();
+        if (nextAttempt != null && nextAttempt > 0) {
+            return nextAttempt * 1000L;
+        }
+        return null;
+    }
+
+    /**
+     * Retry-After is stored as a Kotlin {@code Duration}. Its getter is not a legal Java identifier,
+     * so it is read through the value-class unbox methods.
+     */
+    private static Long retryAfterHeaderMilliseconds(final RegistrationSessionMetadataResponse session) {
+        if (RetryAfterAccess.GETTER == null
+                || RetryAfterAccess.UNBOX == null
+                || RetryAfterAccess.TO_MILLIS == null) {
+            return null;
+        }
+        try {
+            final var duration = RetryAfterAccess.GETTER.invoke(session);
+            if (duration == null) {
+                return null;
+            }
+            final var raw = (long) RetryAfterAccess.UNBOX.invoke(duration);
+            return (long) RetryAfterAccess.TO_MILLIS.invoke(null, raw);
+        } catch (ReflectiveOperationException e) {
+            logger.debug("Failed to read registration Retry-After", e);
+            return null;
+        }
+    }
+
+    private static final class RetryAfterAccess {
+
+        private static final Method GETTER = findGetter();
+        private static final Method UNBOX = findUnbox();
+        private static final Method TO_MILLIS = findToMillis();
+
+        private static Method findGetter() {
+            for (final var method : RegistrationSessionMetadataResponse.class.getMethods()) {
+                if (method.getName().startsWith("getRetryAfterTimestamp") && method.getParameterCount() == 0) {
+                    return method;
+                }
+            }
+            return null;
+        }
+
+        private static Method findUnbox() {
+            try {
+                return Class.forName("kotlin.time.Duration").getMethod("unbox-impl");
+            } catch (ReflectiveOperationException e) {
+                return null;
+            }
+        }
+
+        private static Method findToMillis() {
+            try {
+                return Class.forName("kotlin.time.Duration").getMethod("getInWholeMilliseconds-impl", long.class);
+            } catch (ReflectiveOperationException e) {
+                return null;
+            }
+        }
+    }
+
+    private static boolean isRegistrationRateLimit(final int statusCode) {
+        return statusCode == 413 || statusCode == 429;
     }
 
     public interface Verifier {
