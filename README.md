@@ -133,7 +133,7 @@ Global options must be placed before the subcommand, e.g. `signal-cli --user-age
 
   Set the full User-Agent string for Signal server requests.
   If not set, the `SIGNAL_CLI_USER_AGENT` environment variable is used.
-  If neither is set, the default is `Signal-Android/8.15.0 signal-cli/VERSION`.
+  If neither is set, the default is `Signal-Android/8.31.1 Android/36`.
 
   ```sh
   signal-cli --user-agent "MyApp/1.0 Signal-Android/8.15.0" -a ACCOUNT receive

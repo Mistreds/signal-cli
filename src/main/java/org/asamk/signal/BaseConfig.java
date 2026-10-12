@@ -10,7 +10,7 @@ public class BaseConfig {
     }
 
     public static String getDefaultUserAgent() {
-        return "Signal-Android/8.31.1 " + getSignalCliUserAgentSuffix();
+        return "Signal-Android/8.31.1 Android/36";
     }
 
     /**
@@ -25,9 +25,5 @@ public class BaseConfig {
             return envUserAgent.trim();
         }
         return getDefaultUserAgent();
-    }
-
-    private static String getSignalCliUserAgentSuffix() {
-        return PROJECT_NAME == null ? "signal-cli" : PROJECT_NAME + "/" + PROJECT_VERSION;
     }
 }
