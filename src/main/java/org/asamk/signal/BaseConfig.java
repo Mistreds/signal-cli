@@ -10,7 +10,7 @@ public class BaseConfig {
     }
 
     public static String getDefaultUserAgent() {
-        return "Signal-Android/8.15.0 " + getSignalCliUserAgentSuffix();
+        return "Signal-Android/8.31.1 " + getSignalCliUserAgentSuffix();
     }
 
     /**
