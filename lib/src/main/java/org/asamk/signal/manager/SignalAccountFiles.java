@@ -17,6 +17,7 @@ import org.asamk.signal.manager.storage.SignalAccount;
 import org.asamk.signal.manager.storage.accounts.AccountsStorage;
 import org.asamk.signal.manager.storage.accounts.AccountsStore;
 import org.asamk.signal.manager.util.KeyUtils;
+import org.asamk.signal.manager.util.SignalUserAgent;
 import org.signal.core.models.ServiceId.ACI;
 import org.signal.network.config.SignalProxy;
 import org.slf4j.Logger;
@@ -46,7 +47,7 @@ public class SignalAccountFiles {
 
     private final PathConfig pathConfig;
     private final ServiceEnvironment serviceEnvironment;
-    private final ServiceEnvironmentConfig serviceEnvironmentConfig;
+    private final Optional<SignalProxy> signalProxy;
     private final String userAgent;
     private final Settings settings;
     private final AccountsStore accountsStore;
@@ -59,17 +60,13 @@ public class SignalAccountFiles {
     ) throws IOException, TlsProxy.InvalidTlsProxyException {
         this.pathConfig = PathConfig.createDefault(settingsPath);
         this.serviceEnvironment = serviceEnvironment;
-        final Optional<SignalProxy> signalProxy;
         if (settings.tlsProxy() == null) {
-            signalProxy = Optional.empty();
+            this.signalProxy = Optional.empty();
         } else {
             final var proxy = TlsProxy.parse(settings.tlsProxy());
-            signalProxy = Optional.of(new SignalProxy(proxy.host(), proxy.port()));
+            this.signalProxy = Optional.of(new SignalProxy(proxy.host(), proxy.port()));
         }
-        this.serviceEnvironmentConfig = ServiceConfig.getServiceEnvironmentConfig(this.serviceEnvironment,
-                userAgent,
-                signalProxy);
-        this.userAgent = userAgent;
+        this.userAgent = userAgent == null || userAgent.isBlank() ? null : userAgent.trim();
         this.settings = settings;
         this.accountsStore = new AccountsStore(pathConfig.dataPath(), serviceEnvironment, accountPath -> {
             if (accountPath == null || !SignalAccount.accountFileExists(pathConfig.dataPath(), accountPath)) {
@@ -363,11 +360,12 @@ public class SignalAccountFiles {
 
         account.initDatabase();
 
+        final var accountUserAgent = userAgentFor(account);
         final var manager = new ManagerImpl(account,
                 pathConfig,
                 new AccountFileUpdaterImpl(accountsStore, accountPath),
-                serviceEnvironmentConfig,
-                userAgent);
+                environmentFor(accountUserAgent),
+                accountUserAgent);
 
         try {
             manager.checkAccountState();
@@ -405,9 +403,10 @@ public class SignalAccountFiles {
     }
 
     public ProvisioningManager initProvisioningManager(Consumer<Manager> newManagerListener) {
+        final var deviceUserAgent = userAgent != null ? userAgent : SignalUserAgent.random();
         return new ProvisioningManagerImpl(pathConfig,
-                serviceEnvironmentConfig,
-                userAgent,
+                environmentFor(deviceUserAgent),
+                deviceUserAgent,
                 newManagerListener,
                 accountsStore);
     }
@@ -442,12 +441,7 @@ public class SignalAccountFiles {
                     settings);
             account.initDatabase();
 
-            return new RegistrationManagerImpl(account,
-                    pathConfig,
-                    serviceEnvironmentConfig,
-                    userAgent,
-                    newManagerListener,
-                    new AccountFileUpdaterImpl(accountsStore, newAccountPath));
+            return registrationManager(account, newAccountPath, newManagerListener);
         }
 
         var account = SignalAccount.load(pathConfig.dataPath(), accountPath, true, settings);
@@ -457,12 +451,7 @@ public class SignalAccountFiles {
         }
         account.initDatabase();
 
-        return new RegistrationManagerImpl(account,
-                pathConfig,
-                serviceEnvironmentConfig,
-                userAgent,
-                newManagerListener,
-                new AccountFileUpdaterImpl(accountsStore, accountPath));
+        return registrationManager(account, accountPath, newManagerListener);
     }
 
     private RegistrationManager initRegistrationManager(
@@ -482,12 +471,7 @@ public class SignalAccountFiles {
                     KeyUtils.createProfileKey(),
                     settings);
             account.initDatabase();
-            return new RegistrationManagerImpl(account,
-                    pathConfig,
-                    serviceEnvironmentConfig,
-                    userAgent,
-                    newManagerListener,
-                    new AccountFileUpdaterImpl(accountsStore, newAccountPath));
+            return registrationManager(account, newAccountPath, newManagerListener);
         }
 
         final var account = SignalAccount.load(pathConfig.dataPath(), accountPath, true, settings);
@@ -496,11 +480,31 @@ public class SignalAccountFiles {
             throw new IOException("ACI in account file doesn't match expected ACI: " + account.getAci());
         }
         account.initDatabase();
+        return registrationManager(account, accountPath, newManagerListener);
+    }
+
+    private RegistrationManager registrationManager(
+            final SignalAccount account,
+            final String accountPath,
+            final Consumer<Manager> newManagerListener
+    ) {
+        final var accountUserAgent = userAgentFor(account);
         return new RegistrationManagerImpl(account,
                 pathConfig,
-                serviceEnvironmentConfig,
-                userAgent,
+                environmentFor(accountUserAgent),
+                accountUserAgent,
                 newManagerListener,
                 new AccountFileUpdaterImpl(accountsStore, accountPath));
+    }
+
+    private String userAgentFor(final SignalAccount account) {
+        if (userAgent != null) {
+            return userAgent;
+        }
+        return account.ensureUserAgent();
+    }
+
+    private ServiceEnvironmentConfig environmentFor(final String accountUserAgent) {
+        return ServiceConfig.getServiceEnvironmentConfig(serviceEnvironment, accountUserAgent, signalProxy);
     }
 }

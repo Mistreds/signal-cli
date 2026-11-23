@@ -60,9 +60,8 @@ public class SendMessageResultUtils {
                 throw new UntrustedKeyErrorException("Failed to send message due to untrusted identities");
             } else if (sendMessageResults.hasOnlyRateLimitFailure()) {
                 final var retryAfter = sendMessageResults.maxRateLimitRetryAfterMilliseconds();
-                final var nextAttempt = retryAfter == null ? 0L : System.currentTimeMillis() + retryAfter;
-                throw new RateLimitErrorException("Failed to send message due to rate limiting",
-                        new RateLimitException(nextAttempt));
+                final var rateLimit = new RateLimitException(retryAfter);
+                throw new RateLimitErrorException(CommandUtil.getRateLimitMessage(rateLimit), rateLimit);
             } else {
                 throw new UserErrorException("Failed to send message");
             }

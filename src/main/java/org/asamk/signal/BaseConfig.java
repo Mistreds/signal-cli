@@ -9,12 +9,10 @@ public class BaseConfig {
     private BaseConfig() {
     }
 
-    public static String getDefaultUserAgent() {
-        return "Signal-Android/8.31.1 Android/36";
-    }
-
     /**
-     * Resolves the User-Agent string. Priority: CLI/config value, then {@value #USER_AGENT_ENV} env var, then default.
+     * Resolves an explicit User-Agent. Priority: CLI/config value, then {@value #USER_AGENT_ENV}.
+     *
+     * @return the configured agent, or {@code null} when each device should use its own Signal Android or iOS agent
      */
     public static String resolveUserAgent(final String configuredUserAgent) {
         if (configuredUserAgent != null && !configuredUserAgent.isBlank()) {
@@ -24,6 +22,6 @@ public class BaseConfig {
         if (envUserAgent != null && !envUserAgent.isBlank()) {
             return envUserAgent.trim();
         }
-        return getDefaultUserAgent();
+        return null;
     }
 }

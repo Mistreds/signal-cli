@@ -121,9 +121,9 @@ public class App {
                 .setDefault(cfg.ignoreUnregisteredAccounts() != null ? cfg.ignoreUnregisteredAccounts() : false);
 
         parser.addArgument("--user-agent")
-                .help("Set the User-Agent string for Signal server requests (overrides "
+                .help("Set one User-Agent for every account (overrides "
                         + BaseConfig.USER_AGENT_ENV
-                        + " environment variable).")
+                        + "). Without it, each device keeps its own Signal Android or iOS User-Agent.")
                 .setDefault(cfg.userAgent());
 
         parser.addArgument("--tls-proxy")
@@ -148,7 +148,12 @@ public class App {
     }
 
     public void init() throws CommandException {
-        logger.info("Using User-Agent: {}", BaseConfig.resolveUserAgent(ns.getString("user-agent")));
+        final var configuredUserAgent = BaseConfig.resolveUserAgent(ns.getString("user-agent"));
+        if (configuredUserAgent == null) {
+            logger.info("Using a random Signal Android or iOS User-Agent for each device");
+        } else {
+            logger.info("Using User-Agent: {}", configuredUserAgent);
+        }
         logger.debug("Starting {}", BaseConfig.PROJECT_NAME + " " + BaseConfig.PROJECT_VERSION);
         var commandKey = ns.getString("command");
         var command = Commands.getCommand(commandKey);

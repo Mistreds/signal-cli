@@ -233,6 +233,7 @@ public class ProvisioningManagerImpl implements ProvisioningManager, Closeable {
                     : generatePreKeysForType(account.getAccountData(ServiceIdType.PNI));
 
             logger.debug("Finishing new device registration");
+            account.setDeviceUserAgent(userAgent);
             final var restClient = new SignalRestClient(serviceEnvironmentConfig.signalServiceConfiguration(),
                     userAgent);
             final var registrationApi = new RegistrationApiV2(restClient, false);

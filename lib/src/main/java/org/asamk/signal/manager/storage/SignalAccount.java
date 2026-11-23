@@ -54,6 +54,7 @@ import org.asamk.signal.manager.storage.stickers.StickerStore;
 import org.asamk.signal.manager.storage.threads.LegacyJsonThreadStore;
 import org.asamk.signal.manager.util.IOUtils;
 import org.asamk.signal.manager.util.KeyUtils;
+import org.asamk.signal.manager.util.SignalUserAgent;
 import org.signal.core.models.AccountEntropyPool;
 import org.signal.core.models.MasterKey;
 import org.signal.core.models.ServiceId;
@@ -138,6 +139,7 @@ public class SignalAccount implements Closeable {
     private UsernameLinkComponents usernameLink;
     private String encryptedDeviceName;
     private int deviceId = 0;
+    private String userAgent;
     private String password;
     private String registrationLockPin;
     private MasterKey pinMasterKey;
@@ -281,6 +283,8 @@ public class SignalAccount implements Closeable {
         signalAccount.aciAccountData.setLocalRegistrationId(KeyHelper.generateRegistrationId(false));
         signalAccount.pniAccountData.setLocalRegistrationId(KeyHelper.generateRegistrationId(false));
         signalAccount.initAllPreKeyIds();
+        signalAccount.userAgent = SignalUserAgent.random();
+        logger.info("Using device User-Agent: {}", signalAccount.userAgent);
         signalAccount.settings = settings;
 
         signalAccount.registered = false;
@@ -310,6 +314,7 @@ public class SignalAccount implements Closeable {
         signalAccount.serviceEnvironment = serviceEnvironment;
         signalAccount.aciAccountData.setLocalRegistrationId(KeyHelper.generateRegistrationId(false));
         signalAccount.pniAccountData.setLocalRegistrationId(KeyHelper.generateRegistrationId(false));
+        signalAccount.userAgent = SignalUserAgent.random();
         signalAccount.settings = settings;
 
         signalAccount.previousStorageVersion = CURRENT_STORAGE_VERSION;
@@ -596,6 +601,7 @@ public class SignalAccount implements Closeable {
             }
             encryptedDeviceName = storage.encryptedDeviceName;
             deviceId = storage.deviceId;
+            userAgent = storage.userAgent;
             isMultiDevice = storage.isMultiDevice;
             password = storage.password;
             setAccountData(aciAccountData, storage.aciAccountData, ACI::parseOrThrow);
@@ -1108,7 +1114,8 @@ public class SignalAccount implements Closeable {
                     mediaRootBackupKey == null ? null : base64.encodeToString(mediaRootBackupKey.getValue()),
                     profileKey == null ? null : base64.encodeToString(profileKey.serialize()),
                     usernameLink == null ? null : base64.encodeToString(usernameLink.getEntropy()),
-                    usernameLink == null ? null : usernameLink.getServerId().toString());
+                    usernameLink == null ? null : usernameLink.getServerId().toString(),
+                    userAgent);
             try {
                 try (var output = new ByteArrayOutputStream()) {
                     // Write to memory first to prevent corrupting the file in case of serialization errors
@@ -1656,6 +1663,33 @@ public class SignalAccount implements Closeable {
         return deviceId;
     }
 
+    public String getUserAgent() {
+        return userAgent;
+    }
+
+    /**
+     * Stores the User-Agent used while registering or linking this device.
+     */
+    public void setDeviceUserAgent(final String userAgent) {
+        this.userAgent = userAgent;
+        save();
+        if (SignalUserAgent.isOfficialDeviceUserAgent(userAgent)) {
+            logger.info("Using device User-Agent: {}", userAgent);
+        }
+    }
+
+    /**
+     * Returns this device's User-Agent. A missing or signal-cli agent is replaced once and then kept.
+     */
+    public String ensureUserAgent() {
+        if (!SignalUserAgent.isOfficialDeviceUserAgent(userAgent)) {
+            userAgent = SignalUserAgent.random();
+            save();
+            logger.info("Using device User-Agent: {}", userAgent);
+        }
+        return userAgent;
+    }
+
     public boolean isPrimaryDevice() {
         return deviceId == SignalServiceAddress.DEFAULT_DEVICE_ID;
     }
@@ -2145,7 +2179,8 @@ public class SignalAccount implements Closeable {
             String mediaRootBackupKey,
             String profileKey,
             String usernameLinkEntropy,
-            String usernameLinkServerId
+            String usernameLinkServerId,
+            String userAgent
     ) {
 
         public record AccountData(
