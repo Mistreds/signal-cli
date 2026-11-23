@@ -16,6 +16,7 @@ public record GlobalConfig(
         @JsonProperty("disableSendLog") Boolean disableSendLog,
         @JsonProperty("ignoreUnregisteredAccounts") Boolean ignoreUnregisteredAccounts,
         @JsonProperty("userAgent") String userAgent,
+        @JsonProperty("tlsProxy") String tlsProxy,
         @JsonProperty("account") String account
 ) {
 
@@ -32,9 +33,11 @@ public record GlobalConfig(
             null,
             null,
             null,
+            null,
             null);
 
     public static GlobalConfig empty() {
-        return new GlobalConfig(null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        return new GlobalConfig(null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null);
     }
 }

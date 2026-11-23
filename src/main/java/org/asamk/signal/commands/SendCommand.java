@@ -106,6 +106,12 @@ public class SendCommand implements JsonRpcLocalCommand {
         subparser.addArgument("--edit-timestamp")
                 .type(long.class)
                 .help("Specify the timestamp of a previous message with the recipient or group to send an edited message.");
+        subparser.addArgument("--timestamp")
+                .type(long.class)
+                .help("Specify the timestamp of the message in milliseconds since the epoch, "
+                        + "instead of using the current time. "
+                        + "Must be positive and in the past. "
+                        + "Cannot be combined with --edit-timestamp or --end-session.");
         subparser.addArgument("--no-urgent")
                 .action(Arguments.storeTrue())
                 .help("Send the message without the urgent flag, so no push notification is triggered for the recipient. "
@@ -141,8 +147,19 @@ public class SendCommand implements JsonRpcLocalCommand {
                 groupIdStrings,
                 usernameStrings);
 
+        final var messageTimestamp = parseMessageTimestamp(ns.get("timestamp"), System.currentTimeMillis());
+
+        final var editTimestamp = ns.getLong("edit-timestamp");
+        if (editTimestamp != null && messageTimestamp.isPresent()) {
+            throw new UserErrorException("--timestamp cannot be combined with --edit-timestamp");
+        }
+
         final var isEndSession = Boolean.TRUE.equals(ns.getBoolean("end-session"));
         if (isEndSession) {
+            if (messageTimestamp.isPresent()) {
+                throw new UserErrorException("--timestamp cannot be combined with --end-session");
+            }
+
             final var singleRecipients = recipientIdentifiers.stream()
                     .filter(r -> r instanceof RecipientIdentifier.Single)
                     .map(RecipientIdentifier.Single.class::cast)
@@ -199,6 +216,7 @@ public class SendCommand implements JsonRpcLocalCommand {
 
         final var textStyleStrings = ns.<String>getList("text-style");
         final var textStyles = textStyleStrings == null ? List.<TextStyle>of() : parseTextStyles(textStyleStrings);
+        checkRangesInMessageText(messageText, mentions, textStyles);
 
         final Message.Quote quote;
         final var quoteTimestamp = ns.getLong("quote-timestamp");
@@ -259,8 +277,6 @@ public class SendCommand implements JsonRpcLocalCommand {
                     "Sending empty message is not allowed, either a message, attachment or sticker must be given.");
         }
 
-        final var editTimestamp = ns.getLong("edit-timestamp");
-
         try {
             final var message = new Message(messageText,
                     attachments,
@@ -274,7 +290,8 @@ public class SendCommand implements JsonRpcLocalCommand {
                     previews,
                     Optional.ofNullable((storyReply)),
                     textStyles,
-                    !noUrgent);
+                    !noUrgent,
+                    messageTimestamp);
             var results = editTimestamp != null
                     ? m.sendEditMessage(message, recipientIdentifiers, editTimestamp)
                     : m.sendMessage(message, recipientIdentifiers, notifySelf);
@@ -313,8 +330,15 @@ public class SendCommand implements JsonRpcLocalCommand {
                         + dimension
                         + ") expected 'WIDTHxHEIGHT'");
             }
-            dimensions.add(new Message.AttachmentDimensions(Integer.parseInt(matcher.group(1)),
-                    Integer.parseInt(matcher.group(2))));
+            try {
+                dimensions.add(new Message.AttachmentDimensions(Integer.parseInt(matcher.group(1)),
+                        Integer.parseInt(matcher.group(2))));
+            } catch (NumberFormatException e) {
+                throw new UserErrorException("Invalid attachment dimensions syntax ("
+                        + dimension
+                        + ") expected 'WIDTHxHEIGHT' with positive 32-bit integer values",
+                        e);
+            }
         }
         return dimensions;
     }
@@ -337,6 +361,58 @@ public class SendCommand implements JsonRpcLocalCommand {
         return blurHash.length() == 4 + 2 * (sizeFlag % 9 + 1) * (sizeFlag / 9 + 1);
     }
 
+    static Optional<Long> parseMessageTimestamp(final Object raw, final long now) throws UserErrorException {
+        if (raw == null) {
+            return Optional.empty();
+        }
+        final long timestamp = switch (raw) {
+            case Integer i -> i.longValue();
+            case Long l -> l;
+            default -> throw new UserErrorException("Timestamp must be an integer number of milliseconds");
+        };
+        if (timestamp <= 0) {
+            throw new UserErrorException("Timestamp must be positive");
+        }
+        if (timestamp >= now) {
+            throw new UserErrorException("Timestamp must be in the past");
+        }
+        return Optional.of(timestamp);
+    }
+
+    /**
+     * Signal clients drop a message with a body range that ends after its text, without any error for the sender.
+     * Like the clients, the length is counted in UTF-16 code units.
+     */
+    private static void checkRangesInMessageText(
+            final String messageText,
+            final List<Message.Mention> mentions,
+            final List<TextStyle> textStyles
+    ) throws UserErrorException {
+        final var length = messageText.length();
+        for (final var mention : mentions) {
+            if ((long) mention.start() + mention.length() > length) {
+                throw new UserErrorException("Mention "
+                        + mention.start()
+                        + ":"
+                        + mention.length()
+                        + " is outside of the message text (length "
+                        + length
+                        + ")");
+            }
+        }
+        for (final var textStyle : textStyles) {
+            if ((long) textStyle.start() + textStyle.length() > length) {
+                throw new UserErrorException("Text style "
+                        + textStyle.start()
+                        + ":"
+                        + textStyle.length()
+                        + " is outside of the message text (length "
+                        + length
+                        + ")");
+            }
+        }
+    }
+
     private List<Message.Mention> parseMentions(
             final String selfNumber,
             final List<String> mentionStrings
@@ -350,9 +426,15 @@ public class SendCommand implements JsonRpcLocalCommand {
                         + mention
                         + ") expected 'start:length:recipientNumber'");
             }
-            mentions.add(new Message.Mention(CommandUtil.getSingleRecipientIdentifier(matcher.group(3), selfNumber),
-                    Integer.parseInt(matcher.group(1)),
-                    Integer.parseInt(matcher.group(2))));
+            try {
+                mentions.add(new Message.Mention(CommandUtil.getSingleRecipientIdentifier(matcher.group(3), selfNumber),
+                        Integer.parseInt(matcher.group(1)),
+                        Integer.parseInt(matcher.group(2))));
+            } catch (NumberFormatException e) {
+                throw new UserErrorException("Invalid mention syntax ("
+                        + mention
+                        + ") expected 'start:length:recipientNumber' with 32-bit integer values", e);
+            }
         }
         return mentions;
     }
@@ -373,9 +455,15 @@ public class SendCommand implements JsonRpcLocalCommand {
             if (style == null) {
                 throw new UserErrorException("Invalid style: " + matcher.group(3));
             }
-            textStyles.add(new TextStyle(style,
-                    Integer.parseInt(matcher.group(1)),
-                    Integer.parseInt(matcher.group(2))));
+            try {
+                textStyles.add(new TextStyle(style,
+                        Integer.parseInt(matcher.group(1)),
+                        Integer.parseInt(matcher.group(2))));
+            } catch (NumberFormatException e) {
+                throw new UserErrorException("Invalid textStyle syntax ("
+                        + textStyle
+                        + ") expected 'start:length:STYLE' with 32-bit integer values", e);
+            }
         }
         return textStyles;
     }
@@ -388,7 +476,13 @@ public class SendCommand implements JsonRpcLocalCommand {
                     + stickerString
                     + ") expected 'stickerPackId:stickerId'");
         }
-        return new Message.Sticker(Hex.toByteArray(matcher.group(1)), Integer.parseInt(matcher.group(2)));
+        try {
+            return new Message.Sticker(Hex.toByteArray(matcher.group(1)), Integer.parseInt(matcher.group(2)));
+        } catch (NumberFormatException e) {
+            throw new UserErrorException("Invalid sticker syntax ("
+                    + stickerString
+                    + ") expected 'stickerPackId:stickerId' with a 32-bit integer stickerId", e);
+        }
     }
 
     private List<Message.Quote.Attachment> parseQuoteAttachments(

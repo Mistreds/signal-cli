@@ -5,8 +5,9 @@ import org.asamk.signal.manager.api.TrustNewIdentity;
 public record Settings(
         TrustNewIdentity trustNewIdentity,
         boolean disableMessageSendLog,
-        boolean ignoreUnregisteredAccounts
+        boolean ignoreUnregisteredAccounts,
+        String tlsProxy
 ) {
 
-    public static final Settings DEFAULT = new Settings(TrustNewIdentity.ON_FIRST_USE, false, false);
+    public static final Settings DEFAULT = new Settings(TrustNewIdentity.ON_FIRST_USE, false, false, null);
 }
